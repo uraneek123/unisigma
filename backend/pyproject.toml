@@ -17,3 +17,7 @@ dependencies = [
 dev = [
     "pytest>=9.0.2",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"test_*.py" = ["S101", "S105", "S106", "S107", "PLR2004", "SLF001", "D", "ANN", "ARG001", "PLC0415", "EM102"]
+"*_test.py" = ["S101", "S105", "S106", "S107", "PLR2004", "SLF001", "D", "ANN", "ARG001", "PLC0415", "EM102"]
