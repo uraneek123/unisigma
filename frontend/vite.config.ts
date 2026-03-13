@@ -1,4 +1,4 @@
-import { defineConfig } from "vite"
+import { defineConfig } from 'vitest/config'
 import react from "@vitejs/plugin-react"
 import { fileURLToPath, URL } from "node:url"
 
@@ -8,6 +8,18 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
+  test: {
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json", "html"],
+      thresholds: {
+        lines: 70,
+        functions: 70,
+        branches: 70,
+        statements: 70,
+      },
     },
   },
 })
