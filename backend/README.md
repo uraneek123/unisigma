@@ -1,0 +1,1 @@
+BE IN BACKEND FOLDER. RUN uv sync. RUN .venv/bin/activate. RUN uvicorn main:app --reload. 
