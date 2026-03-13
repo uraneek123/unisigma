@@ -1,0 +1,18 @@
+{
+    "folders": [
+        {
+            "name": "frontend",
+            "path": "frontend",
+        },
+        {
+            "name": "backend",
+            "path": "backend",
+        }
+    ],
+    "settings": {
+        "python.defaultInterpreterPath": "${workspaceFolder:backend}/.venv/bin/python",
+        "files.associations": {
+            "*.css": "tailwindcss"
+        },
+    }
+}
