@@ -143,8 +143,12 @@
         <h2>Image to LaTeX (Pix2Text OCR)</h2>
         <div class="row">
           <div>
-            <label for="ocrImageFile">Image File (PNG/JPG/JPEG/WEBP)</label>
-            <input id="ocrImageFile" type="file" accept="image/png,image/jpeg,image/webp" />
+            <label for="ocrImageFile">Image/PDF File</label>
+            <input
+              id="ocrImageFile"
+              type="file"
+              accept="image/png,image/jpeg,image/webp,application/pdf,.pdf"
+            />
           </div>
           <div style="display: flex; align-items: end;">
             <button id="runOcrBtn">Recognize Image -> LaTeX</button>
@@ -161,8 +165,35 @@
             </select>
           </div>
           <div>
+            <label for="ocrEngine">OCR Engine</label>
+            <select id="ocrEngine">
+              <option value="default" selected>default (from backend env)</option>
+              <option value="local">local (on your machine)</option>
+              <option value="cloud">cloud (Breezedeus API)</option>
+            </select>
+          </div>
+        </div>
+        <div class="row" style="margin-top: 8px;">
+          <div>
+            <label for="ocrServerType">Cloud Server Type</label>
+            <select id="ocrServerType">
+              <option value="pro" selected>pro</option>
+              <option value="plus">plus</option>
+              <option value="ultra">ultra (required for PDF)</option>
+            </select>
+          </div>
+          <div>
+            <label for="ocrLanguage">Cloud Language</label>
+            <input id="ocrLanguage" value="English" placeholder="English" />
+          </div>
+        </div>
+        <div class="row" style="margin-top: 8px;">
+          <div>
             <label for="ocrMeta">OCR Strategy</label>
             <input id="ocrMeta" value="No OCR run yet" readonly />
+          </div>
+          <div class="muted" style="display: flex; align-items: end;">
+            Cloud OCR uses backend env key (`PIX2TEXT_CLOUD_API_KEY`).
           </div>
         </div>
         <p class="muted">If successful, recognized LaTeX is copied into the Statement LaTeX field.</p>
@@ -264,6 +295,9 @@
       const ocrImageFileInput = document.getElementById("ocrImageFile");
       const runOcrBtn = document.getElementById("runOcrBtn");
       const ocrModeSelect = document.getElementById("ocrMode");
+      const ocrEngineSelect = document.getElementById("ocrEngine");
+      const ocrServerTypeSelect = document.getElementById("ocrServerType");
+      const ocrLanguageInput = document.getElementById("ocrLanguage");
       const ocrMetaInput = document.getElementById("ocrMeta");
       const createProblemBtn = document.getElementById("createProblemBtn");
       const refreshProblemsBtn = document.getElementById("refreshProblemsBtn");
@@ -352,13 +386,34 @@
       runOcrBtn.addEventListener("click", async () => {
         const imageFile = ocrImageFileInput.files[0];
         if (!imageFile) {
-          showResponse("Validation", { message: "Please choose an image file first" });
+          showResponse("Validation", { message: "Please choose an image or PDF file first" });
+          return;
+        }
+
+        const isPdf =
+          imageFile.type === "application/pdf" ||
+          imageFile.name.toLowerCase().endsWith(".pdf");
+        if (isPdf && ocrEngineSelect.value === "local") {
+          showResponse("Validation", {
+            message: "PDF OCR requires cloud engine (or default mapped to cloud)."
+          });
+          return;
+        }
+        if (isPdf && ocrServerTypeSelect.value !== "ultra") {
+          showResponse("Validation", {
+            message: "PDF OCR requires server type ultra."
+          });
           return;
         }
 
         const formData = new FormData();
         formData.append("file", imageFile);
         formData.append("ocr_mode", ocrModeSelect.value);
+        formData.append("ocr_engine", ocrEngineSelect.value);
+        formData.append("ocr_server_type", ocrServerTypeSelect.value);
+        if (ocrLanguageInput.value.trim()) {
+          formData.append("ocr_language", ocrLanguageInput.value.trim());
+        }
 
         try {
           const response = await fetch(`${getApiBase()}/problems/ocr-latex`, {
@@ -369,7 +424,7 @@
           showResponse("Image to LaTeX", data);
           if (response.ok && data.latex) {
             statementLatexInput.value = data.latex;
-            ocrMetaInput.value = `${data.mode_used} | ${data.strategy}`;
+            ocrMetaInput.value = `${ocrEngineSelect.value} | ${data.mode_used} | ${data.strategy}`;
             renderLatex(ocrLatexRender, data.latex);
             renderLatex(statementLatexRender, data.latex);
             renderMarkdownWithMath(ocrMarkdownRender, data.markdown || data.latex);

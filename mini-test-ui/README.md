@@ -24,6 +24,10 @@ python -m http.server 5501
 
 ## What it tests
 
+- OCR upload (`POST /problems/ocr-latex`) with:
+  - `ocr_mode` (`auto/formula/text_formula/page`)
+  - `ocr_engine` (`default/local/cloud`)
+  - cloud overrides (`ocr_server_type`, `ocr_language`)
 - Create problem
 - List problems
 - Upload PNG diagram to a problem

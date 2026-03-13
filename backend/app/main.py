@@ -7,12 +7,14 @@ from app import models  # noqa: F401
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.db.base import Base
+from app.db.bootstrap import run_sqlite_compat_migrations
 from app.db.session import engine
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
+    run_sqlite_compat_migrations(get_settings().database_url)
     yield
 
 

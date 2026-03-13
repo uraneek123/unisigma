@@ -4,7 +4,7 @@ from app.api.routes import problems as problems_routes
 from app.db.base import Base
 from app.db.session import engine
 from app.main import app
-from app.services.pix2text_ocr import OcrExtractionResult
+from app.services.pix2text_ocr import OcrExtractionResult, _parse_text_languages
 
 
 def setup_function() -> None:
@@ -216,6 +216,18 @@ def test_ocr_endpoint_rejects_invalid_mode() -> None:
     assert response.status_code == 400
 
 
+def test_ocr_endpoint_rejects_invalid_engine() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/problems/ocr-latex",
+        data={"ocr_engine": "bad-engine"},
+        files={"file": ("equation.png", b"fakepng", "image/png")},
+    )
+
+    assert response.status_code == 400
+
+
 def test_ocr_endpoint_returns_page_mode_markdown(monkeypatch) -> None:
     client = TestClient(app)
 
@@ -253,6 +265,9 @@ def test_ocr_endpoint_passes_normalized_mode_to_service(monkeypatch) -> None:
 
     async def fake_extract_latex_from_image(**kwargs) -> OcrExtractionResult:
         captured["mode_override"] = kwargs["mode_override"]
+        captured["ocr_engine_override"] = kwargs["ocr_engine_override"]
+        captured["ocr_server_type_override"] = kwargs["ocr_server_type_override"]
+        captured["ocr_language_override"] = kwargs["ocr_language_override"]
         return OcrExtractionResult(
             latex=r"x+y",
             markdown=None,
@@ -268,9 +283,25 @@ def test_ocr_endpoint_passes_normalized_mode_to_service(monkeypatch) -> None:
 
     response = client.post(
         "/problems/ocr-latex",
-        data={"ocr_mode": " TeXt_FoRmUlA "},
+        data={
+            "ocr_mode": " TeXt_FoRmUlA ",
+            "ocr_engine": " ClOuD ",
+            "ocr_server_type": " PlUs ",
+            "ocr_language": " English ",
+        },
         files={"file": ("equation.png", b"fakepng", "image/png")},
     )
 
     assert response.status_code == 200
     assert captured["mode_override"] == "text_formula"
+    assert captured["ocr_engine_override"] == "cloud"
+    assert captured["ocr_server_type_override"] == "plus"
+    assert captured["ocr_language_override"] == "English"
+
+
+def test_parse_text_languages_defaults_to_en() -> None:
+    assert _parse_text_languages(" , ") == ("en",)
+
+
+def test_parse_text_languages_strips_and_preserves_order() -> None:
+    assert _parse_text_languages(" en , ch_sim,ja ") == ("en", "ch_sim", "ja")

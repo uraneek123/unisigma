@@ -24,12 +24,14 @@ from app.services.pix2text_ocr import extract_latex_from_image
 
 router = APIRouter(prefix="/problems", tags=["problems"])
 DIAGRAMS_DIR = Path("uploads") / "diagrams"
-OCR_ALLOWED_CONTENT_TYPES = {
+OCR_ALLOWED_IMAGE_CONTENT_TYPES = {
     "image/png",
     "image/jpeg",
     "image/jpg",
     "image/webp",
 }
+OCR_ENGINE_VALUES = {"default", "local", "cloud"}
+OCR_SERVER_TYPE_VALUES = {"pro", "plus", "ultra"}
 
 
 def _problem_query():
@@ -305,15 +307,36 @@ def moderate_problem(
 async def extract_problem_latex(
     file: UploadFile = File(...),
     ocr_mode: str = Form(default="auto"),
+    ocr_engine: str = Form(default="default"),
+    ocr_server_type: str | None = Form(default=None),
+    ocr_language: str | None = Form(default=None),
 ) -> OcrLatexResponse:
-    content_type = (file.content_type or "").lower()
-    file_name = (file.filename or "image").lower()
-    if content_type not in OCR_ALLOWED_CONTENT_TYPES and not file_name.endswith(
-        (".png", ".jpg", ".jpeg", ".webp")
-    ):
+    requested_engine = ocr_engine.strip().lower()
+    if requested_engine not in OCR_ENGINE_VALUES:
         raise HTTPException(
             status_code=400,
-            detail="Only PNG/JPG/JPEG/WEBP images are supported for OCR",
+            detail="ocr_engine must be one of: default, local, cloud",
+        )
+
+    content_type = (file.content_type or "").lower()
+    file_name = (file.filename or "image").lower()
+    is_pdf = content_type == "application/pdf" or file_name.endswith(".pdf")
+    is_supported_image = (
+        content_type in OCR_ALLOWED_IMAGE_CONTENT_TYPES
+        or file_name.endswith((".png", ".jpg", ".jpeg", ".webp"))
+    )
+    if not is_supported_image and not is_pdf:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Only PNG/JPG/JPEG/WEBP images are supported "
+                "(PDF requires cloud OCR)."
+            ),
+        )
+    if is_pdf and requested_engine not in {"cloud", "default"}:
+        raise HTTPException(
+            status_code=400,
+            detail="PDF OCR requires ocr_engine=cloud (or default mapped to cloud).",
         )
 
     image_bytes = await file.read()
@@ -327,7 +350,40 @@ async def extract_problem_latex(
             detail="ocr_mode must be one of: auto, formula, text_formula, page",
         )
 
+    requested_server_type: str | None = None
+    if ocr_server_type is not None and ocr_server_type.strip():
+        requested_server_type = ocr_server_type.strip().lower()
+        if requested_server_type not in OCR_SERVER_TYPE_VALUES:
+            raise HTTPException(
+                status_code=400,
+                detail="ocr_server_type must be one of: pro, plus, ultra",
+            )
+
     settings = get_settings()
+    effective_engine = (
+        settings.pix2text_provider
+        if requested_engine == "default"
+        else requested_engine
+    )
+    if is_pdf and effective_engine != "cloud":
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "PDF OCR requires cloud engine. "
+                "Set ocr_engine=cloud or PIX2TEXT_PROVIDER=cloud."
+            ),
+        )
+
+    effective_server_type = (
+        settings.pix2text_cloud_server_type
+        if requested_server_type is None
+        else requested_server_type
+    )
+    if is_pdf and effective_server_type != "ultra":
+        raise HTTPException(
+            status_code=400,
+            detail="PDF OCR requires server_type=ultra.",
+        )
 
     try:
         result = await extract_latex_from_image(
@@ -335,9 +391,20 @@ async def extract_problem_latex(
             filename=file.filename or "image.png",
             settings=settings,
             mode_override=requested_mode,
+            ocr_engine_override=requested_engine,
+            ocr_server_type_override=requested_server_type,
+            ocr_language_override=ocr_language.strip() if ocr_language else None,
         )
     except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        detail = str(exc)
+        status_code = 503
+        if "(401)" in detail:
+            status_code = 401
+        elif "(403)" in detail:
+            status_code = 403
+        elif "(400)" in detail:
+            status_code = 400
+        raise HTTPException(status_code=status_code, detail=detail) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=502,
