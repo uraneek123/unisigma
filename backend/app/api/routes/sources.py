@@ -17,7 +17,7 @@ def list_sources(db: Session = Depends(get_db)) -> list[Source]:
 @router.post("", response_model=SourceRead, status_code=status.HTTP_201_CREATED)
 def create_source(payload: SourceCreate, db: Session = Depends(get_db)) -> Source:
     source = Source(
-        title=payload.title.strip(),
+        title=payload.title,
         author=payload.author,
         year=payload.year,
         notes=payload.notes,

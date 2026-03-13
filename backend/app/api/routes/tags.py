@@ -17,7 +17,7 @@ def list_tags(db: Session = Depends(get_db)) -> list[Tag]:
 
 @router.post("", response_model=TagRead, status_code=status.HTTP_201_CREATED)
 def create_tag(payload: TagCreate, db: Session = Depends(get_db)) -> Tag:
-    tag = Tag(name=payload.name.strip(), description=payload.description)
+    tag = Tag(name=payload.name, description=payload.description)
     db.add(tag)
     try:
         db.commit()

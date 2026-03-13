@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     app_name: str = "UniSigma Backend"
     app_env: str = "dev"
     database_url: str = "sqlite:///./unisigma.db"
+    pix2text_mode: str = "formula"
 
     model_config = SettingsConfigDict(
         env_file=".env",
