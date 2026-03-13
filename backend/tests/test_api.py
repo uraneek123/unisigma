@@ -3,7 +3,6 @@ from fastapi.testclient import TestClient
 from app.db.base import Base
 from app.db.session import engine
 from app.main import app
-# ALL TESTS WERE WRITTEN BY AI
 
 def setup_function() -> None:
     Base.metadata.drop_all(bind=engine)
