@@ -20,7 +20,7 @@ def create_source(payload: SourceCreate, db: Session = Depends(get_db)) -> Sourc
     if not title:
         raise HTTPException(status_code=400, detail="Source title cannot be empty")
     source = Source(
-        title=title,
+        title=payload.title,
         author=payload.author,
         year=payload.year,
         notes=payload.notes,

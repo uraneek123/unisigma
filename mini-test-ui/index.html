@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UniSigma Minimal Test UI</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
+    />
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --surface: #ffffff;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --accent: #0369a1;
+        --border: #d1d5db;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      h1 {
+        margin: 0 0 16px;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px;
+        margin-bottom: 12px;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      label {
+        display: block;
+        font-size: 14px;
+        margin-bottom: 4px;
+      }
+
+      input,
+      textarea,
+      button,
+      select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 14px;
+      }
+
+      textarea {
+        min-height: 90px;
+        resize: vertical;
+      }
+
+      button {
+        background: var(--accent);
+        color: white;
+        border: 0;
+        cursor: pointer;
+      }
+
+      .muted {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      pre {
+        background: #0f172a;
+        color: #e5e7eb;
+        border-radius: 8px;
+        padding: 10px;
+        max-height: 260px;
+        overflow: auto;
+      }
+
+      ul {
+        margin: 8px 0 0;
+        padding-left: 18px;
+      }
+
+      .latex-preview {
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        padding: 10px;
+        min-height: 44px;
+        background: #fafcff;
+      }
+
+      .markdown-preview {
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        padding: 10px;
+        min-height: 44px;
+        background: #fbfcfe;
+      }
+
+      .markdown-preview p {
+        margin: 0.3rem 0;
+      }
+
+      @media (max-width: 700px) {
+        .row {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>UniSigma Test Frontend</h1>
+      <p class="muted">Minimal UI for testing backend problem and diagram flows.</p>
+
+      <section class="card">
+        <h2>Backend URL</h2>
+        <label for="apiBase">API Base</label>
+        <input id="apiBase" value="http://127.0.0.1:8000" />
+      </section>
+
+      <section class="card">
+        <h2>Image to LaTeX (Pix2Text OCR)</h2>
+        <div class="row">
+          <div>
+            <label for="ocrImageFile">Image/PDF File</label>
+            <input
+              id="ocrImageFile"
+              type="file"
+              accept="image/png,image/jpeg,image/webp,application/pdf,.pdf"
+            />
+          </div>
+          <div style="display: flex; align-items: end;">
+            <button id="runOcrBtn">Recognize Image -> LaTeX</button>
+          </div>
+        </div>
+        <div class="row" style="margin-top: 8px;">
+          <div>
+            <label for="ocrMode">OCR Mode</label>
+            <select id="ocrMode">
+              <option value="auto" selected>auto (recommended)</option>
+              <option value="formula">formula</option>
+              <option value="text_formula">text_formula</option>
+              <option value="page">page (markdown)</option>
+            </select>
+          </div>
+          <div>
+            <label for="ocrEngine">OCR Engine</label>
+            <select id="ocrEngine">
+              <option value="default" selected>default (from backend env)</option>
+              <option value="local">local (on your machine)</option>
+              <option value="cloud">cloud (Breezedeus API)</option>
+            </select>
+          </div>
+        </div>
+        <div class="row" style="margin-top: 8px;">
+          <div>
+            <label for="ocrServerType">Cloud Server Type</label>
+            <select id="ocrServerType">
+              <option value="pro" selected>pro</option>
+              <option value="plus">plus</option>
+              <option value="ultra">ultra (required for PDF)</option>
+            </select>
+          </div>
+          <div>
+            <label for="ocrLanguage">Cloud Language</label>
+            <input id="ocrLanguage" value="English" placeholder="English" />
+          </div>
+        </div>
+        <div class="row" style="margin-top: 8px;">
+          <div>
+            <label for="ocrMeta">OCR Strategy</label>
+            <input id="ocrMeta" value="No OCR run yet" readonly />
+          </div>
+          <div class="muted" style="display: flex; align-items: end;">
+            Cloud OCR uses backend env key (`PIX2TEXT_CLOUD_API_KEY`).
+          </div>
+        </div>
+        <p class="muted">If successful, recognized LaTeX is copied into the Statement LaTeX field.</p>
+        <label>OCR LaTeX Render</label>
+        <div id="ocrLatexRender" class="latex-preview muted">No OCR output yet.</div>
+        <label style="margin-top: 8px;">OCR Markdown + Math Render</label>
+        <div id="ocrMarkdownRender" class="markdown-preview muted">No OCR markdown yet.</div>
+      </section>
+
+      <section class="card">
+        <h2>Create Problem</h2>
+        <div class="row">
+          <div>
+            <label for="statementText">Statement Text</label>
+            <textarea id="statementText" placeholder="Enter problem statement"></textarea>
+          </div>
+          <div>
+            <label for="statementLatex">Statement LaTeX (optional)</label>
+            <textarea id="statementLatex" placeholder="Leave blank to auto-generate"></textarea>
+          </div>
+        </div>
+        <div class="row" style="margin-top: 8px;">
+          <div>
+            <label for="submittedBy">Submitted By</label>
+            <input id="submittedBy" placeholder="username or nickname" />
+          </div>
+          <div>
+            <label for="autoLatex">Auto Generate LaTeX</label>
+            <select id="autoLatex">
+              <option value="true" selected>true</option>
+              <option value="false">false</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top: 10px;">
+          <button id="createProblemBtn">Create Problem</button>
+        </div>
+        <div style="margin-top: 10px;">
+          <label>Statement LaTeX Render</label>
+          <div id="statementLatexRender" class="latex-preview muted">No LaTeX entered yet.</div>
+        </div>
+        <div style="margin-top: 10px;">
+          <label>Statement Markdown + Math Render</label>
+          <div id="statementMarkdownRender" class="markdown-preview muted">No markdown entered yet.</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Problems</h2>
+        <div class="row">
+          <div>
+            <button id="refreshProblemsBtn">Refresh Problems</button>
+          </div>
+          <div>
+            <button id="loadProblemBtn">Load Problem By ID</button>
+          </div>
+        </div>
+        <ul id="problemList"></ul>
+      </section>
+
+      <section class="card">
+        <h2>Selected Problem</h2>
+        <div id="problemDetails" class="muted">No problem selected.</div>
+      </section>
+
+      <section class="card">
+        <h2>Upload PNG Diagram</h2>
+        <div class="row">
+          <div>
+            <label for="problemId">Problem ID</label>
+            <input id="problemId" type="number" min="1" placeholder="e.g. 1" />
+          </div>
+          <div>
+            <label for="diagramCaption">Caption (optional)</label>
+            <input id="diagramCaption" placeholder="triangle ABC" />
+          </div>
+        </div>
+        <div style="margin-top: 8px;">
+          <label for="diagramFile">PNG File</label>
+          <input id="diagramFile" type="file" accept="image/png" />
+        </div>
+        <div style="margin-top: 10px;">
+          <button id="uploadDiagramBtn">Upload Diagram</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Response</h2>
+        <pre id="responseBox">No requests yet.</pre>
+      </section>
+    </div>
+
+    <script>
+      const apiBaseInput = document.getElementById("apiBase");
+      const statementTextInput = document.getElementById("statementText");
+      const statementLatexInput = document.getElementById("statementLatex");
+      const submittedByInput = document.getElementById("submittedBy");
+      const autoLatexSelect = document.getElementById("autoLatex");
+      const ocrImageFileInput = document.getElementById("ocrImageFile");
+      const runOcrBtn = document.getElementById("runOcrBtn");
+      const ocrModeSelect = document.getElementById("ocrMode");
+      const ocrEngineSelect = document.getElementById("ocrEngine");
+      const ocrServerTypeSelect = document.getElementById("ocrServerType");
+      const ocrLanguageInput = document.getElementById("ocrLanguage");
+      const ocrMetaInput = document.getElementById("ocrMeta");
+      const createProblemBtn = document.getElementById("createProblemBtn");
+      const refreshProblemsBtn = document.getElementById("refreshProblemsBtn");
+      const loadProblemBtn = document.getElementById("loadProblemBtn");
+      const problemList = document.getElementById("problemList");
+      const problemIdInput = document.getElementById("problemId");
+      const diagramCaptionInput = document.getElementById("diagramCaption");
+      const diagramFileInput = document.getElementById("diagramFile");
+      const uploadDiagramBtn = document.getElementById("uploadDiagramBtn");
+      const responseBox = document.getElementById("responseBox");
+      const problemDetails = document.getElementById("problemDetails");
+      const ocrLatexRender = document.getElementById("ocrLatexRender");
+      const statementLatexRender = document.getElementById("statementLatexRender");
+      const ocrMarkdownRender = document.getElementById("ocrMarkdownRender");
+      const statementMarkdownRender = document.getElementById("statementMarkdownRender");
+
+      function renderMarkdownWithMath(targetElement, markdownText) {
+        const markdown = (markdownText || "").trim();
+        if (!markdown) {
+          targetElement.classList.add("muted");
+          targetElement.textContent = "No markdown to render.";
+          return;
+        }
+
+        if (!window.markdownit) {
+          targetElement.classList.add("muted");
+          targetElement.textContent = markdown;
+          return;
+        }
+
+        const md = window.markdownit({
+          breaks: true,
+          html: false,
+          linkify: true
+        });
+        targetElement.innerHTML = md.render(markdown);
+        targetElement.classList.remove("muted");
+
+        if (window.renderMathInElement) {
+          window.renderMathInElement(targetElement, {
+            delimiters: [
+              { left: "$$", right: "$$", display: true },
+              { left: "$", right: "$", display: false },
+              { left: "\\(", right: "\\)", display: false },
+              { left: "\\[", right: "\\]", display: true }
+            ],
+            throwOnError: false
+          });
+        }
+      }
+
+      function renderLatex(targetElement, latexText) {
+        const latex = (latexText || "").trim();
+        if (!latex) {
+          targetElement.classList.add("muted");
+          targetElement.textContent = "No LaTeX to render.";
+          return;
+        }
+
+        if (!window.katex) {
+          targetElement.classList.add("muted");
+          targetElement.textContent = latex;
+          return;
+        }
+
+        try {
+          window.katex.render(latex, targetElement, {
+            throwOnError: false,
+            displayMode: true
+          });
+          targetElement.classList.remove("muted");
+        } catch (_err) {
+          targetElement.classList.add("muted");
+          targetElement.textContent = latex;
+        }
+      }
+
+      function showResponse(title, payload) {
+        responseBox.textContent = `${title}\n\n${JSON.stringify(payload, null, 2)}`;
+      }
+
+      function getApiBase() {
+        return apiBaseInput.value.trim().replace(/\/$/, "");
+      }
+
+      runOcrBtn.addEventListener("click", async () => {
+        const imageFile = ocrImageFileInput.files[0];
+        if (!imageFile) {
+          showResponse("Validation", { message: "Please choose an image or PDF file first" });
+          return;
+        }
+
+        const isPdf =
+          imageFile.type === "application/pdf" ||
+          imageFile.name.toLowerCase().endsWith(".pdf");
+        if (isPdf && ocrEngineSelect.value === "local") {
+          showResponse("Validation", {
+            message: "PDF OCR requires cloud engine (or default mapped to cloud)."
+          });
+          return;
+        }
+        if (isPdf && ocrServerTypeSelect.value !== "ultra") {
+          showResponse("Validation", {
+            message: "PDF OCR requires server type ultra."
+          });
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", imageFile);
+        formData.append("ocr_mode", ocrModeSelect.value);
+        formData.append("ocr_engine", ocrEngineSelect.value);
+        formData.append("ocr_server_type", ocrServerTypeSelect.value);
+        if (ocrLanguageInput.value.trim()) {
+          formData.append("ocr_language", ocrLanguageInput.value.trim());
+        }
+
+        try {
+          const response = await fetch(`${getApiBase()}/problems/ocr-latex`, {
+            method: "POST",
+            body: formData
+          });
+          const data = await response.json();
+          showResponse("Image to LaTeX", data);
+          if (response.ok && data.latex) {
+            statementLatexInput.value = data.latex;
+            ocrMetaInput.value = `${ocrEngineSelect.value} | ${data.mode_used} | ${data.strategy}`;
+            renderLatex(ocrLatexRender, data.latex);
+            renderLatex(statementLatexRender, data.latex);
+            renderMarkdownWithMath(ocrMarkdownRender, data.markdown || data.latex);
+            renderMarkdownWithMath(
+              statementMarkdownRender,
+              data.markdown || data.latex
+            );
+          } else {
+            ocrMetaInput.value = "OCR failed";
+          }
+        } catch (error) {
+          ocrMetaInput.value = "OCR request error";
+          showResponse("Network error", { message: String(error) });
+        }
+      });
+
+      statementLatexInput.addEventListener("input", () => {
+        renderLatex(statementLatexRender, statementLatexInput.value);
+        renderMarkdownWithMath(statementMarkdownRender, statementLatexInput.value);
+      });
+
+      function renderProblem(problem) {
+        const tagNames = (problem.tags || []).map((tag) => tag.name);
+        const sourceNames = (problem.sources || []).map((link) => {
+          const primary = link.is_primary ? " (primary)" : "";
+          return `${link.source.title}${primary}`;
+        });
+        const diagramPaths = (problem.diagrams || []).map((diagram) => diagram.image_path);
+        const solutions = (problem.solutions || []).map((solution) => solution.body_text);
+
+        problemDetails.innerHTML = `
+          <p><strong>ID:</strong> ${problem.id}</p>
+          <p><strong>Status:</strong> ${problem.moderation_status}</p>
+          <p><strong>Statement:</strong> ${problem.statement_text}</p>
+          <p><strong>LaTeX Source:</strong> ${problem.statement_latex || "(none)"}</p>
+          <div><strong>LaTeX Render:</strong></div>
+          <div id="selectedProblemLatexRender" class="latex-preview muted">No LaTeX to render.</div>
+          <div style="margin-top: 6px;"><strong>Markdown + Math Render:</strong></div>
+          <div id="selectedProblemMarkdownRender" class="markdown-preview muted">No markdown to render.</div>
+          <p><strong>Tags:</strong> ${tagNames.length ? tagNames.join(", ") : "(none)"}</p>
+          <p><strong>Sources:</strong> ${sourceNames.length ? sourceNames.join(", ") : "(none)"}</p>
+          <p><strong>Diagrams:</strong> ${diagramPaths.length ? diagramPaths.join(", ") : "(none)"}</p>
+          <p><strong>Solutions:</strong> ${solutions.length ? solutions.join(" | ") : "(none)"}</p>
+        `;
+
+        const selectedProblemLatexRender = document.getElementById("selectedProblemLatexRender");
+        renderLatex(selectedProblemLatexRender, problem.statement_latex || "");
+        const selectedProblemMarkdownRender = document.getElementById("selectedProblemMarkdownRender");
+        renderMarkdownWithMath(
+          selectedProblemMarkdownRender,
+          problem.statement_latex || ""
+        );
+      }
+
+      async function loadProblemById(problemId) {
+        try {
+          const response = await fetch(`${getApiBase()}/problems/${problemId}`);
+          const data = await response.json();
+          showResponse("Load problem", data);
+          if (!response.ok) {
+            return;
+          }
+          renderProblem(data);
+        } catch (error) {
+          showResponse("Network error", { message: String(error) });
+        }
+      }
+
+      async function refreshProblems() {
+        try {
+          const response = await fetch(`${getApiBase()}/problems`);
+          const data = await response.json();
+          if (!response.ok) {
+            showResponse("Failed to fetch problems", data);
+            return;
+          }
+
+          problemList.innerHTML = "";
+          data.forEach((problem) => {
+            const li = document.createElement("li");
+            li.textContent = `#${problem.id} ${problem.statement_text} | diagrams: ${problem.diagrams.length}`;
+            li.addEventListener("click", () => {
+              problemIdInput.value = String(problem.id);
+              renderProblem(problem);
+              loadProblemById(problem.id);
+            });
+            problemList.appendChild(li);
+          });
+          showResponse("Loaded problems", data);
+        } catch (error) {
+          showResponse("Network error", { message: String(error) });
+        }
+      }
+
+      createProblemBtn.addEventListener("click", async () => {
+        const payload = {
+          statement_text: statementTextInput.value,
+          statement_latex: statementLatexInput.value || null,
+          submitted_by: submittedByInput.value || null,
+          auto_generate_latex: autoLatexSelect.value === "true",
+          suggested_tag_names: [],
+          suggested_sources: [],
+          tag_ids: [],
+          sources: []
+        };
+
+        try {
+          const response = await fetch(`${getApiBase()}/problems`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const data = await response.json();
+          showResponse("Create problem", data);
+          if (response.ok) {
+            problemIdInput.value = String(data.id);
+            renderProblem(data);
+            await refreshProblems();
+          }
+        } catch (error) {
+          showResponse("Network error", { message: String(error) });
+        }
+      });
+
+      uploadDiagramBtn.addEventListener("click", async () => {
+        const problemId = problemIdInput.value.trim();
+        const file = diagramFileInput.files[0];
+
+        if (!problemId) {
+          showResponse("Validation", { message: "Problem ID is required" });
+          return;
+        }
+        if (!file) {
+          showResponse("Validation", { message: "Please choose a PNG file" });
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+        if (diagramCaptionInput.value.trim()) {
+          formData.append("caption", diagramCaptionInput.value.trim());
+        }
+
+        try {
+          const response = await fetch(`${getApiBase()}/problems/${problemId}/diagrams`, {
+            method: "POST",
+            body: formData
+          });
+          const data = await response.json();
+          showResponse("Upload diagram", data);
+          if (response.ok) {
+            await refreshProblems();
+            await loadProblemById(problemId);
+          }
+        } catch (error) {
+          showResponse("Network error", { message: String(error) });
+        }
+      });
+
+      loadProblemBtn.addEventListener("click", async () => {
+        const problemId = problemIdInput.value.trim();
+        if (!problemId) {
+          showResponse("Validation", { message: "Problem ID is required" });
+          return;
+        }
+        await loadProblemById(problemId);
+      });
+
+      refreshProblemsBtn.addEventListener("click", refreshProblems);
+      renderLatex(statementLatexRender, statementLatexInput.value);
+      renderMarkdownWithMath(statementMarkdownRender, statementLatexInput.value);
+      refreshProblems();
+    </script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"
+    ></script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"
+    ></script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    ></script>
+  </body>
+</html>

@@ -1,8 +1,10 @@
 from fastapi.testclient import TestClient
 
+from app.api.routes import problems as problems_routes
 from app.db.base import Base
 from app.db.session import engine
 from app.main import app
+from app.services.pix2text_ocr import OcrExtractionResult, _parse_text_languages
 
 def setup_function() -> None:
     Base.metadata.drop_all(bind=engine)
