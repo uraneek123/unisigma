@@ -1,8 +1,12 @@
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+
 from app.models import Problem
 
-def find_similar(problem: Problem, all_problems: list[Problem], k: int = 5) -> list[Problem]:
+
+def find_similar(
+    problem: Problem, all_problems: list[Problem], k: int = 5
+) -> list[Problem]:
     if not problem.embedding:
         return []
 

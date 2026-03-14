@@ -1,11 +1,6 @@
 {
     "folders": [
         {
-<<<<<<< HEAD
-            "path": "backend"
-        }
-    ]
-=======
             "name": "frontend",
             "path": "frontend",
         },
@@ -20,5 +15,4 @@
             "*.css": "tailwindcss"
         },
     }
->>>>>>> 54b06bf9322b83c3dc664ac9aea7119a7434a3b4
 }

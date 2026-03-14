@@ -21,6 +21,7 @@ from app.schemas import (
     SourceCreate,
 )
 from app.services.pix2text_ocr import extract_latex_from_image
+
 from ...services.embedding_service import embedding_service
 from ...services.similarity_service import find_similar
 
@@ -43,6 +44,7 @@ def _problem_query():
         selectinload(Problem.solutions),
         selectinload(Problem.diagrams),
     )
+
 
 def problem_to_text(problem: Problem) -> str:
     tags_str = ", ".join(tag.name for tag in problem.tags) if problem.tags else ""
@@ -485,8 +487,11 @@ def create_solution(
     db.refresh(solution)
     return solution
 
+
 @router.get("/{problem_id}/similar", response_model=list[ProblemRead])
-def get_similar_problems(problem_id: int, db: Session = Depends(get_db)) -> list[Problem]:
+def get_similar_problems(
+    problem_id: int, db: Session = Depends(get_db)
+) -> list[Problem]:
     problem = _get_problem_or_404(problem_id, db)
     all_problems = db.scalars(_problem_query()).all()
     similar = find_similar(problem, all_problems, k=5)
