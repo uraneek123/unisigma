@@ -2,11 +2,59 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.models import ModerationStatus
+from app.models import AccountRole, ModerationStatus
 
 
 class BaseSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
+
+class AccountCreate(BaseModel):
+    username: str = Field(min_length=1, max_length=120)
+    password: str | None = Field(default=None, min_length=8, max_length=256)
+    role: AccountRole = AccountRole.USER
+
+    @field_validator("username")
+    @classmethod
+    def normalize_username(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("username cannot be blank")
+        return normalized
+
+    @field_validator("password")
+    @classmethod
+    def normalize_password(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+
+class AccountUpdate(BaseModel):
+    role: AccountRole | None = None
+    score: int | None = None
+    is_active: bool | None = None
+    password: str | None = Field(default=None, min_length=8, max_length=256)
+
+    @field_validator("password")
+    @classmethod
+    def normalize_password(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+
+class AccountRead(BaseSchema):
+    id: int
+    username: str
+    role: AccountRole
+    questions_posted: int
+    score: int
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
 
 
 class TagCreate(BaseModel):
@@ -143,9 +191,11 @@ class SolutionRead(BaseSchema):
 
 
 class ProblemCreate(BaseModel):
-    statement_text: str = Field(min_length=1)
+    statement_text: str | None = Field(default=None, min_length=1)
     statement_latex: str | None = None
+    content_markdown: str | None = None
     notes: str | None = None
+    author_id: int | None = None
     submitted_by: str | None = Field(default=None, max_length=120)
     auto_generate_latex: bool = True
     suggested_tag_names: list[str] = Field(default_factory=list)
@@ -156,13 +206,15 @@ class ProblemCreate(BaseModel):
 
     @field_validator("statement_text")
     @classmethod
-    def normalize_statement_text(cls, value: str) -> str:
+    def normalize_statement_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         normalized = value.strip()
         if not normalized:
             raise ValueError("statement_text cannot be blank")
         return normalized
 
-    @field_validator("statement_latex", "notes", "submitted_by")
+    @field_validator("statement_latex", "content_markdown", "notes", "submitted_by")
     @classmethod
     def normalize_problem_optional_text(cls, value: str | None) -> str | None:
         if value is None:
@@ -187,6 +239,10 @@ class ProblemCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_sources(self) -> "ProblemCreate":
+        if not self.statement_text and not self.content_markdown:
+            raise ValueError(
+                "At least one of statement_text or content_markdown must be provided"
+            )
         source_ids = [source.source_id for source in self.sources]
         if len(source_ids) != len(set(source_ids)):
             raise ValueError("sources must not contain duplicate source_id values")
@@ -198,6 +254,7 @@ class ProblemCreate(BaseModel):
 class ProblemUpdate(BaseModel):
     statement_text: str | None = Field(default=None, min_length=1)
     statement_latex: str | None = None
+    content_markdown: str | None = None
     notes: str | None = None
     moderation_status: ModerationStatus | None = None
     tag_ids: list[int] | None = None
@@ -213,7 +270,7 @@ class ProblemUpdate(BaseModel):
             raise ValueError("statement_text cannot be blank")
         return normalized
 
-    @field_validator("statement_latex", "notes")
+    @field_validator("statement_latex", "content_markdown", "notes")
     @classmethod
     def normalize_problem_update_optional_text(cls, value: str | None) -> str | None:
         if value is None:
@@ -246,7 +303,9 @@ class ProblemRead(BaseSchema):
     id: int
     statement_text: str
     statement_latex: str | None
+    content_markdown: str | None
     notes: str | None
+    author: AccountRead | None
     submitted_by: str | None
     moderation_status: ModerationStatus
     created_at: datetime
@@ -268,8 +327,19 @@ class DiagramUploadResponse(BaseModel):
     caption: str | None
 
 
+class EditorAssetUploadResponse(BaseModel):
+    image_path: str
+    image_url: str
+    markdown_image: str
+
+
 class OcrLatexResponse(BaseModel):
     latex: str
     markdown: str | None = None
     mode_used: str
+    strategy: str
+
+
+class OcrTextResponse(BaseModel):
+    text: str
     strategy: str

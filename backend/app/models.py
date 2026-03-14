@@ -3,7 +3,17 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, UniqueConstraint, func, JSON
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Enum,
+    ForeignKey,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -13,6 +23,12 @@ class ModerationStatus(StrEnum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
+
+
+class AccountRole(StrEnum):
+    USER = "user"
+    MODERATOR = "moderator"
+    ADMIN = "admin"
 
 
 class TimestampMixin:
@@ -49,13 +65,16 @@ class Problem(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     statement_text: Mapped[str] = mapped_column(Text)
     statement_latex: Mapped[str | None] = mapped_column(Text, default=None)
+    content_markdown: Mapped[str | None] = mapped_column(Text, default=None)
     notes: Mapped[str | None] = mapped_column(Text, default=None)
+    author_id: Mapped[int | None] = mapped_column(ForeignKey("accounts.id"), default=None)
     submitted_by: Mapped[str | None] = mapped_column(String(120), default=None)
     moderation_status: Mapped[ModerationStatus] = mapped_column(
         Enum(ModerationStatus, native_enum=False), default=ModerationStatus.PENDING
     )
     embedding: Mapped[list[float] | None] = mapped_column(JSON, default=None)
 
+    author: Mapped["Account | None"] = relationship(back_populates="problems")
     tags: Mapped[list["Tag"]] = relationship(
         secondary="problem_tags", back_populates="problems"
     )
@@ -122,3 +141,20 @@ class ProblemDiagram(Base, TimestampMixin):
     caption: Mapped[str | None] = mapped_column(String(255), default=None)
 
     problem: Mapped[Problem] = relationship(back_populates="diagrams")
+
+
+class Account(Base, TimestampMixin):
+    __tablename__ = "accounts"
+    __table_args__ = (UniqueConstraint("username", name="uq_accounts_username"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(120))
+    password_hash: Mapped[str | None] = mapped_column(String(512), default=None)
+    role: Mapped[AccountRole] = mapped_column(
+        Enum(AccountRole, native_enum=False), default=AccountRole.USER
+    )
+    questions_posted: Mapped[int] = mapped_column(default=0)
+    score: Mapped[int] = mapped_column(default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    problems: Mapped[list[Problem]] = relationship(back_populates="author")

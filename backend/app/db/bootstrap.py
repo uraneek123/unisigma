@@ -37,5 +37,13 @@ def run_sqlite_compat_migrations(database_url: str) -> None:
         return
 
     # Dev-only compatibility: older SQLite files created before these fields existed.
+    _add_sqlite_column_if_missing("problems", "author_id", "INTEGER")
     _add_sqlite_column_if_missing("problems", "submitted_by", "VARCHAR(120)")
+    _add_sqlite_column_if_missing("problems", "content_markdown", "TEXT")
+    _add_sqlite_column_if_missing("problems", "embedding", "JSON")
     _add_sqlite_column_if_missing("solutions", "submitted_by", "VARCHAR(120)")
+    _add_sqlite_column_if_missing("accounts", "password_hash", "VARCHAR(512)")
+    _add_sqlite_column_if_missing("accounts", "role", "VARCHAR(20) DEFAULT 'user'")
+    _add_sqlite_column_if_missing("accounts", "questions_posted", "INTEGER DEFAULT 0")
+    _add_sqlite_column_if_missing("accounts", "score", "INTEGER DEFAULT 0")
+    _add_sqlite_column_if_missing("accounts", "is_active", "BOOLEAN DEFAULT 1")

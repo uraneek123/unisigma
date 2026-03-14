@@ -5,10 +5,34 @@ from app.db.base import Base
 from app.db.session import engine
 from app.main import app
 from app.services.pix2text_ocr import OcrExtractionResult, _parse_text_languages
+from app.services.text_ocr import TextExtractionResult
+
 
 def setup_function() -> None:
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
+
+
+def _create_account(
+    client: TestClient,
+    username: str,
+    *,
+    role: str = "user",
+    actor_user_id: int | None = None,
+    password: str | None = None,
+) -> dict:
+    payload: dict[str, str] = {"username": username, "role": role}
+    if password is not None:
+        payload["password"] = password
+
+    params = (
+        {"actor_user_id": actor_user_id}
+        if actor_user_id is not None
+        else None
+    )
+    response = client.post("/accounts", json=payload, params=params)
+    assert response.status_code == 201
+    return response.json()
 
 
 def test_problem_crud_flow() -> None:
@@ -145,6 +169,7 @@ def test_list_sources_sorted() -> None:
 
 def test_problem_crud_flow2() -> None:
     client = TestClient(app)
+    account = _create_account(client, "editor")
 
     # ----------------------------
     # Create math tag
@@ -169,6 +194,7 @@ def test_problem_crud_flow2() -> None:
     problem_payload = {
         "statement_text": "Solve x^2 - 5x + 6 = 0.",
         "statement_latex": r"Solve x^2 - 5x + 6 = 0.",
+        "author_id": account["id"],
         "tag_ids": [tag_id],
         "sources": [{"source_id": source_id, "note": "Primary source", "is_primary": True}],
         "notes": "Sample problem",
@@ -203,7 +229,11 @@ def test_problem_crud_flow2() -> None:
         "tag_ids": [new_tag_id],
         "sources": []
     }
-    updated_response = client.patch(f"/problems/{problem_id}", json=update_payload)
+    updated_response = client.patch(
+        f"/problems/{problem_id}",
+        params={"actor_user_id": account["id"]},
+        json=update_payload,
+    )
     assert updated_response.status_code == 200
     updated = updated_response.json()
     assert updated["statement_text"] == "Solve x^2 - 3x + 2 = 0."
@@ -520,6 +550,96 @@ def test_ocr_endpoint_rejects_non_image() -> None:
     assert response.status_code == 400
 
 
+def test_text_ocr_endpoint_rejects_non_image() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/problems/ocr-text",
+        files={"file": ("notes.txt", b"not an image", "text/plain")},
+    )
+
+    assert response.status_code == 400
+
+
+def test_text_ocr_endpoint_returns_text_from_service(monkeypatch) -> None:
+    client = TestClient(app)
+
+    async def fake_extract_text_from_image(**_kwargs) -> TextExtractionResult:
+        return TextExtractionResult(
+            text="Solve for x",
+            strategy="tesseract-eng",
+        )
+
+    monkeypatch.setattr(
+        problems_routes,
+        "extract_text_from_image",
+        fake_extract_text_from_image,
+    )
+
+    response = client.post(
+        "/problems/ocr-text",
+        files={"file": ("snippet.png", b"fakepng", "image/png")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["text"] == "Solve for x"
+    assert payload["strategy"] == "tesseract-eng"
+
+
+def test_text_ocr_endpoint_rejects_invalid_tool() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/problems/ocr-text",
+        data={"text_tool": "bad-tool"},
+        files={"file": ("snippet.png", b"fakepng", "image/png")},
+    )
+
+    assert response.status_code == 400
+
+
+def test_text_ocr_endpoint_passes_normalized_options_to_service(monkeypatch) -> None:
+    client = TestClient(app)
+    captured: dict[str, object] = {}
+
+    async def fake_extract_text_from_image(**kwargs) -> TextExtractionResult:
+        captured["text_tool_override"] = kwargs["text_tool_override"]
+        captured["ocr_engine_override"] = kwargs["ocr_engine_override"]
+        captured["ocr_server_type_override"] = kwargs["ocr_server_type_override"]
+        captured["ocr_language_override"] = kwargs["ocr_language_override"]
+        captured["strip_cjk"] = kwargs["strip_cjk"]
+        return TextExtractionResult(
+            text="A clean OCR sentence",
+            strategy="text-via-page",
+        )
+
+    monkeypatch.setattr(
+        problems_routes,
+        "extract_text_from_image",
+        fake_extract_text_from_image,
+    )
+
+    response = client.post(
+        "/problems/ocr-text",
+        data={
+            "text_tool": " PiX2TeXt ",
+            "ocr_engine": " ClOuD ",
+            "ocr_server_type": " PlUs ",
+            "ocr_language": " English ",
+            "strip_cjk": "true",
+        },
+        files={"file": ("snippet.png", b"fakepng", "image/png")},
+    )
+
+    assert response.status_code == 200
+    assert captured["text_tool_override"] == "pix2text"
+    assert captured["ocr_engine_override"] == "cloud"
+    assert captured["ocr_server_type_override"] == "plus"
+    assert captured["ocr_language_override"] == "English"
+    assert captured["strip_cjk"] is True
+
+
 def test_ocr_endpoint_returns_latex_from_service(monkeypatch) -> None:
     client = TestClient(app)
 
@@ -651,7 +771,14 @@ def test_parse_text_languages_strips_and_preserves_order() -> None:
     assert _parse_text_languages(" en , ch_sim,ja ") == ("en", "ch_sim", "ja")
 
 
-# testing similarity feature
+def test_embedding_service_import_is_boot_safe() -> None:
+    import importlib
+
+    module = importlib.import_module("app.services.embedding_service")
+    vector = module.embedding_service.embed_problem("Derivative of x squared")
+    assert isinstance(vector, list)
+
+
 def test_similar_endpoint_returns_404_for_missing_problem() -> None:
     client = TestClient(app)
     response = client.get("/problems/999/similar")
@@ -659,11 +786,10 @@ def test_similar_endpoint_returns_404_for_missing_problem() -> None:
     assert response.json()["detail"] == "Problem not found"
 
 
-def test_similar_endpoint_returns_empty_for_problem_without_embedding() -> None:
+def test_similar_endpoint_returns_empty_when_no_candidates() -> None:
     client = TestClient(app)
 
-    # Create a problem without embedding
-    payload = {"statement_text": "No embedding problem"}
+    payload = {"statement_text": "Only problem in DB"}
     response = client.post("/problems", json=payload)
     problem_id = response.json()["id"]
 
@@ -675,10 +801,8 @@ def test_similar_endpoint_returns_empty_for_problem_without_embedding() -> None:
 def test_similar_endpoint_returns_relevant_problems() -> None:
     client = TestClient(app)
 
-    # Clear DB
     setup_function()
 
-    # Create several problems
     problems = [
         "Derivative of x^2",
         "Integral of x^2",
@@ -693,19 +817,280 @@ def test_similar_endpoint_returns_relevant_problems() -> None:
         assert response.status_code == 201
         problem_ids.append(response.json()["id"])
 
-    main_problem_id = problem_ids[0]  # "Derivative of x^2"
+    main_problem_id = problem_ids[0]
 
-    # Call similar endpoint
     similar_response = client.get(f"/problems/{main_problem_id}/similar")
     assert similar_response.status_code == 200
     similar = similar_response.json()
 
     similar_texts = [p["statement_text"] for p in similar]
 
-    # Exclude self
     assert "Derivative of x^2" not in similar_texts
-    # Closely related problem should appear
     assert "Derivative of x^3" in similar_texts
-    # At most return 4 results
     assert len(similar_texts) <= 4
+
+
+def test_problem_can_be_created_with_markdown_only() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/problems",
+        json={
+            "content_markdown": "# Sample\n\nInline math: $x^2 + y^2$",
+        },
+    )
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["content_markdown"] == "# Sample\n\nInline math: $x^2 + y^2$"
+    assert payload["statement_text"] != ""
+
+
+def test_problem_rejects_when_statement_and_markdown_are_missing() -> None:
+    client = TestClient(app)
+
+    response = client.post("/problems", json={})
+    assert response.status_code == 422
+
+
+def test_update_problem_content_markdown() -> None:
+    client = TestClient(app)
+    author = _create_account(client, "editor")
+
+    created = client.post(
+        "/problems",
+        params={"actor_user_id": author["id"]},
+        json={
+            "statement_text": "Original title",
+            "content_markdown": "Original body",
+        },
+    )
+    assert created.status_code == 201
+    problem_id = created.json()["id"]
+
+    updated = client.patch(
+        f"/problems/{problem_id}",
+        params={"actor_user_id": author["id"]},
+        json={"content_markdown": "Updated body with $x^2$"},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["content_markdown"] == "Updated body with $x^2$"
+
+
+def test_upload_editor_asset_returns_markdown_reference() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/problems/assets",
+        data={"alt_text": "snippet-1"},
+        files={"file": ("snippet.png", b"fake-image-bytes", "image/png")},
+    )
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["image_path"].startswith("/uploads/editor-assets/")
+    assert payload["image_url"].startswith("http://testserver/uploads/editor-assets/")
+    assert payload["markdown_image"].startswith("![snippet-1](")
+    assert payload["image_url"] in payload["markdown_image"]
+
+
+def test_ocr_endpoint_can_strip_wrapping_math_delimiters(monkeypatch) -> None:
+    client = TestClient(app)
+
+    async def fake_extract_latex_from_image(**_kwargs) -> OcrExtractionResult:
+        return OcrExtractionResult(
+            latex="$$x^2 + y^2$$",
+            markdown=None,
+            mode_used="formula",
+            strategy="single-pass-formula",
+        )
+
+    monkeypatch.setattr(
+        problems_routes,
+        "extract_latex_from_image",
+        fake_extract_latex_from_image,
+    )
+
+    response = client.post(
+        "/problems/ocr-latex",
+        data={"strip_math_delimiters": "true"},
+        files={"file": ("equation.png", b"fakepng", "image/png")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["latex"] == "x^2 + y^2"
+
+
+def test_first_account_is_bootstrap_admin() -> None:
+    client = TestClient(app)
+
+    response = client.post("/accounts", json={"username": "founder"})
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["role"] == "admin"
+    assert payload["questions_posted"] == 0
+    assert payload["score"] == 0
+
+
+def test_admin_controls_accounts() -> None:
+    client = TestClient(app)
+    admin = _create_account(client, "admin")
+
+    moderator_response = client.post(
+        "/accounts",
+        params={"actor_user_id": admin["id"]},
+        json={"username": "mod", "role": "moderator"},
+    )
+    assert moderator_response.status_code == 201
+    moderator = moderator_response.json()
+    assert moderator["role"] == "moderator"
+
+    forbidden = client.get("/accounts", params={"actor_user_id": moderator["id"]})
+    assert forbidden.status_code == 403
+
+    listed = client.get("/accounts", params={"actor_user_id": admin["id"]})
+    assert listed.status_code == 200
+    assert len(listed.json()) == 2
+
+    promote = client.patch(
+        f"/accounts/{moderator['id']}",
+        params={"actor_user_id": admin["id"]},
+        json={"score": 9},
+    )
+    assert promote.status_code == 200
+    assert promote.json()["score"] == 9
+
+
+def test_problem_author_and_stats_increment_on_create() -> None:
+    client = TestClient(app)
+    admin = _create_account(client, "admin")
+    user = _create_account(client, "alice", actor_user_id=admin["id"])
+
+    create_problem = client.post(
+        "/problems",
+        params={"actor_user_id": user["id"]},
+        json={"statement_text": "Show that 1+1=2", "author_id": user["id"]},
+    )
+    assert create_problem.status_code == 201
+    payload = create_problem.json()
+    assert payload["author"]["id"] == user["id"]
+    assert payload["submitted_by"] == "alice"
+
+    account_after = client.get(
+        f"/accounts/{user['id']}",
+        params={"actor_user_id": user["id"]},
+    )
+    assert account_after.status_code == 200
+    assert account_after.json()["questions_posted"] == 1
+
+
+def test_user_cannot_edit_other_users_problem_but_moderator_can() -> None:
+    client = TestClient(app)
+    admin = _create_account(client, "admin")
+    author = _create_account(client, "author", actor_user_id=admin["id"])
+    other_user = _create_account(client, "other", actor_user_id=admin["id"])
+    moderator = _create_account(
+        client,
+        "mod",
+        role="moderator",
+        actor_user_id=admin["id"],
+    )
+
+    problem_response = client.post(
+        "/problems",
+        params={"actor_user_id": author["id"]},
+        json={"statement_text": "Solve x^2=9", "author_id": author["id"]},
+    )
+    assert problem_response.status_code == 201
+    problem_id = problem_response.json()["id"]
+
+    blocked = client.patch(
+        f"/problems/{problem_id}",
+        params={"actor_user_id": other_user["id"]},
+        json={"statement_text": "Solve x^2=16"},
+    )
+    assert blocked.status_code == 403
+
+    allowed = client.patch(
+        f"/problems/{problem_id}",
+        params={"actor_user_id": moderator["id"]},
+        json={"statement_text": "Solve x^2=25"},
+    )
+    assert allowed.status_code == 200
+    assert allowed.json()["statement_text"] == "Solve x^2=25"
+
+
+def test_moderation_requires_moderator_or_admin() -> None:
+    client = TestClient(app)
+    admin = _create_account(client, "admin")
+    user = _create_account(client, "user", actor_user_id=admin["id"])
+    moderator = _create_account(
+        client,
+        "mod",
+        role="moderator",
+        actor_user_id=admin["id"],
+    )
+
+    problem = client.post(
+        "/problems",
+        params={"actor_user_id": user["id"]},
+        json={"statement_text": "Compute 2+2", "author_id": user["id"]},
+    )
+    assert problem.status_code == 201
+    problem_id = problem.json()["id"]
+
+    forbidden = client.patch(
+        f"/problems/{problem_id}/moderation",
+        params={"actor_user_id": user["id"]},
+        json={"moderation_status": "approved"},
+    )
+    assert forbidden.status_code == 403
+
+    allowed = client.patch(
+        f"/problems/{problem_id}/moderation",
+        params={"actor_user_id": moderator["id"]},
+        json={"moderation_status": "approved"},
+    )
+    assert allowed.status_code == 200
+    assert allowed.json()["moderation_status"] == "approved"
+
+
+def test_similar_endpoint_prioritizes_shared_tags() -> None:
+    client = TestClient(app)
+    tag_response = client.post("/tags", json={"name": "algebra"})
+    assert tag_response.status_code == 201
+    algebra_id = tag_response.json()["id"]
+
+    target = client.post(
+        "/problems",
+        json={
+            "statement_text": "Solve x^2 - 5x + 6 = 0",
+            "tag_ids": [algebra_id],
+        },
+    )
+    assert target.status_code == 201
+    target_id = target.json()["id"]
+
+    tagged = client.post(
+        "/problems",
+        json={
+            "statement_text": "Count permutations of letters in STATISTICS",
+            "tag_ids": [algebra_id],
+        },
+    )
+    assert tagged.status_code == 201
+    tagged_id = tagged.json()["id"]
+
+    text_similar = client.post(
+        "/problems",
+        json={"statement_text": "Solve x^2 - 7x + 10 = 0"},
+    )
+    assert text_similar.status_code == 201
+    text_similar_id = text_similar.json()["id"]
+
+    similar = client.get(f"/problems/{target_id}/similar")
+    assert similar.status_code == 200
+    similar_ids = [problem["id"] for problem in similar.json()]
+    assert tagged_id in similar_ids
+    if text_similar_id in similar_ids:
+        assert similar_ids.index(tagged_id) < similar_ids.index(text_similar_id)
+
 
