@@ -650,3 +650,62 @@ def test_parse_text_languages_defaults_to_en() -> None:
 def test_parse_text_languages_strips_and_preserves_order() -> None:
     assert _parse_text_languages(" en , ch_sim,ja ") == ("en", "ch_sim", "ja")
 
+
+# testing similarity feature
+def test_similar_endpoint_returns_404_for_missing_problem() -> None:
+    client = TestClient(app)
+    response = client.get("/problems/999/similar")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Problem not found"
+
+
+def test_similar_endpoint_returns_empty_for_problem_without_embedding() -> None:
+    client = TestClient(app)
+
+    # Create a problem without embedding
+    payload = {"statement_text": "No embedding problem"}
+    response = client.post("/problems", json=payload)
+    problem_id = response.json()["id"]
+
+    similar_response = client.get(f"/problems/{problem_id}/similar")
+    assert similar_response.status_code == 200
+    assert similar_response.json() == []
+
+
+def test_similar_endpoint_returns_relevant_problems() -> None:
+    client = TestClient(app)
+
+    # Clear DB
+    setup_function()
+
+    # Create several problems
+    problems = [
+        "Derivative of x^2",
+        "Integral of x^2",
+        "Derivative of x^3",
+        "Solve x^2 + 2x + 1 = 0",
+        "Find limit of x->0 of sin(x)/x",
+    ]
+    problem_ids = []
+
+    for text in problems:
+        response = client.post("/problems", json={"statement_text": text})
+        assert response.status_code == 201
+        problem_ids.append(response.json()["id"])
+
+    main_problem_id = problem_ids[0]  # "Derivative of x^2"
+
+    # Call similar endpoint
+    similar_response = client.get(f"/problems/{main_problem_id}/similar")
+    assert similar_response.status_code == 200
+    similar = similar_response.json()
+
+    similar_texts = [p["statement_text"] for p in similar]
+
+    # Exclude self
+    assert "Derivative of x^2" not in similar_texts
+    # Closely related problem should appear
+    assert "Derivative of x^3" in similar_texts
+    # At most return 4 results
+    assert len(similar_texts) <= 4
+
