@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import re
 from hashlib import blake2b
 from math import sqrt
-import re
 
 
 def _fallback_embedding(problem_text: str, dims: int = 128) -> list[float]:

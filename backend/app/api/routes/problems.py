@@ -1,5 +1,5 @@
-from pathlib import Path
 import re
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import (
@@ -42,10 +42,10 @@ from app.schemas import (
     SolutionRead,
     SourceCreate,
 )
-from app.services.pix2text_ocr import extract_latex_from_image
-from app.services.text_ocr import extract_text_from_image
 from app.services.embedding_service import embedding_service
+from app.services.pix2text_ocr import extract_latex_from_image
 from app.services.similarity_service import find_similar
+from app.services.text_ocr import extract_text_from_image
 
 router = APIRouter(prefix="/problems", tags=["problems"])
 DIAGRAMS_DIR = Path("uploads") / "diagrams"
@@ -147,7 +147,9 @@ def _get_account_or_404(account_id: int, db: Session) -> Account:
 
 
 def _find_account_by_username(username: str, db: Session) -> Account | None:
-    return db.scalar(select(Account).where(func.lower(Account.username) == username.casefold()))
+    return db.scalar(
+        select(Account).where(func.lower(Account.username) == username.casefold())
+    )
 
 
 def _resolve_problem_author(
@@ -303,7 +305,9 @@ def _merge_unique_tags(*tag_groups: list[Tag]) -> list[Tag]:
     seen_keys: set[str] = set()
     for group in tag_groups:
         for tag in group:
-            key = f"id:{tag.id}" if tag.id is not None else f"name:{tag.name.casefold()}"
+            key = (
+                f"id:{tag.id}" if tag.id is not None else f"name:{tag.name.casefold()}"
+            )
             if key in seen_keys:
                 continue
             unique.append(tag)
@@ -311,7 +315,9 @@ def _merge_unique_tags(*tag_groups: list[Tag]) -> list[Tag]:
     return unique
 
 
-def _merge_unique_source_links(*source_groups: list[ProblemSource]) -> list[ProblemSource]:
+def _merge_unique_source_links(
+    *source_groups: list[ProblemSource],
+) -> list[ProblemSource]:
     unique: list[ProblemSource] = []
     seen_source_ids: set[int] = set()
     seen_titles: set[str] = set()
@@ -417,7 +423,11 @@ def create_problem(
     _ensure_actor_can_set_author(actor, author)
 
     statement_latex = payload.statement_latex
-    if statement_latex is None and payload.auto_generate_latex and payload.statement_text:
+    if (
+        statement_latex is None
+        and payload.auto_generate_latex
+        and payload.statement_text
+    ):
         statement_latex = _auto_generate_latex(statement_text)
 
     problem = Problem(
@@ -463,10 +473,10 @@ def update_problem(
     _ensure_can_edit_problem(actor, problem)
     updates = payload.model_dump(exclude_unset=True)
 
-    if (
-        "moderation_status" in updates
-        and actor.role not in {AccountRole.ADMIN, AccountRole.MODERATOR}
-    ):
+    if "moderation_status" in updates and actor.role not in {
+        AccountRole.ADMIN,
+        AccountRole.MODERATOR,
+    }:
         raise HTTPException(
             status_code=403,
             detail="Moderator or admin role is required to change moderation status",
@@ -548,9 +558,8 @@ async def upload_editor_asset(
 ) -> EditorAssetUploadResponse:
     content_type = (file.content_type or "").lower()
     file_name = (file.filename or "").lower()
-    if (
-        content_type not in ASSET_ALLOWED_IMAGE_CONTENT_TYPES
-        and not file_name.endswith(tuple(ASSET_ALLOWED_EXTENSIONS))
+    if content_type not in ASSET_ALLOWED_IMAGE_CONTENT_TYPES and not file_name.endswith(
+        tuple(ASSET_ALLOWED_EXTENSIONS)
     ):
         raise HTTPException(
             status_code=400,
@@ -891,7 +900,9 @@ def create_solution(
 
 
 @router.get("/{problem_id}/similar", response_model=list[ProblemRead])
-def get_similar_problems(problem_id: int, db: Session = Depends(get_db)) -> list[Problem]:
+def get_similar_problems(
+    problem_id: int, db: Session = Depends(get_db)
+) -> list[Problem]:
     problem = _get_problem_or_404(problem_id, db)
     all_problems = db.scalars(_problem_query()).all()
     similar = find_similar(problem, all_problems, k=5)

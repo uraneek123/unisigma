@@ -35,7 +35,9 @@ class TextExtractionResult:
     strategy: str
 
 
-def _normalize_tool(text_tool_override: str | None) -> Literal["auto", "tesseract", "pix2text"]:
+def _normalize_tool(
+    text_tool_override: str | None,
+) -> Literal["auto", "tesseract", "pix2text"]:
     if text_tool_override is None:
         return "auto"
     normalized = text_tool_override.strip().lower()
@@ -91,7 +93,8 @@ def _extract_with_tesseract(
         import pytesseract
     except ImportError as exc:
         raise RuntimeError(
-            "pytesseract is not installed. Install pytesseract + Tesseract OCR to use text_tool=tesseract."
+            "pytesseract is not installed. Install pytesseract + Tesseract OCR "
+            "to use text_tool=tesseract."
         ) from exc
 
     language_code = _to_tesseract_language(language)

@@ -67,7 +67,9 @@ class Problem(Base, TimestampMixin):
     statement_latex: Mapped[str | None] = mapped_column(Text, default=None)
     content_markdown: Mapped[str | None] = mapped_column(Text, default=None)
     notes: Mapped[str | None] = mapped_column(Text, default=None)
-    author_id: Mapped[int | None] = mapped_column(ForeignKey("accounts.id"), default=None)
+    author_id: Mapped[int | None] = mapped_column(
+        ForeignKey("accounts.id"), default=None
+    )
     submitted_by: Mapped[str | None] = mapped_column(String(120), default=None)
     moderation_status: Mapped[ModerationStatus] = mapped_column(
         Enum(ModerationStatus, native_enum=False), default=ModerationStatus.PENDING

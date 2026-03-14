@@ -30,7 +30,9 @@ def _tag_similarity(left: Problem, right: Problem) -> float:
 
 
 def _combined_similarity(problem: Problem, candidate: Problem) -> float:
-    embedding_score = _cosine_similarity(problem.embedding or [], candidate.embedding or [])
+    embedding_score = _cosine_similarity(
+        problem.embedding or [], candidate.embedding or []
+    )
     tag_score = _tag_similarity(problem, candidate)
 
     has_embedding = embedding_score >= 0.0
@@ -56,7 +58,8 @@ def find_similar(
         return []
 
     scored = [
-        (candidate, _combined_similarity(problem, candidate)) for candidate in candidates
+        (candidate, _combined_similarity(problem, candidate))
+        for candidate in candidates
     ]
     ranked = sorted(
         (item for item in scored if item[1] > 0.0),

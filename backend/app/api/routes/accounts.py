@@ -34,7 +34,9 @@ def _require_admin(actor: Account) -> None:
 
 def _find_account_by_username(username: str, db: Session) -> Account | None:
     return db.scalar(
-        select(Account).where(func.lower(Account.username) == _normalize_username_lookup(username))
+        select(Account).where(
+            func.lower(Account.username) == _normalize_username_lookup(username)
+        )
     )
 
 
@@ -66,7 +68,9 @@ def create_account(
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Account username already exists") from exc
+        raise HTTPException(
+            status_code=409, detail="Account username already exists"
+        ) from exc
     db.refresh(account)
     return account
 

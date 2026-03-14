@@ -29,8 +29,8 @@ def hash_password(plain_password: str) -> str:
 
 def verify_password(plain_password: str, encoded_password: str) -> bool:
     try:
-        algorithm, n_text, r_text, p_text, salt_b64, expected_b64 = encoded_password.split(
-            "$"
+        algorithm, n_text, r_text, p_text, salt_b64, expected_b64 = (
+            encoded_password.split("$")
         )
         if algorithm != "scrypt":
             return False
