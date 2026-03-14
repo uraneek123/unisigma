@@ -4,3 +4,11 @@ __pycache__/
 *.pyc
 *.db
 .ruff_cache/
+coverage/
+htmlcov/
+dist/
+.pytest_cache/
+.mypy_cache/
+.pytype/
+.pyre/
+.pyright/

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, UniqueConstraint, func, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -50,9 +50,11 @@ class Problem(Base, TimestampMixin):
     statement_text: Mapped[str] = mapped_column(Text)
     statement_latex: Mapped[str | None] = mapped_column(Text, default=None)
     notes: Mapped[str | None] = mapped_column(Text, default=None)
+    submitted_by: Mapped[str | None] = mapped_column(String(120), default=None)
     moderation_status: Mapped[ModerationStatus] = mapped_column(
         Enum(ModerationStatus, native_enum=False), default=ModerationStatus.PENDING
     )
+    embedding: Mapped[list[float] | None] = mapped_column(JSON, default=None)
 
     tags: Mapped[list["Tag"]] = relationship(
         secondary="problem_tags", back_populates="problems"
@@ -61,6 +63,9 @@ class Problem(Base, TimestampMixin):
         back_populates="problem", cascade="all, delete-orphan"
     )
     solutions: Mapped[list["Solution"]] = relationship(
+        back_populates="problem", cascade="all, delete-orphan"
+    )
+    diagrams: Mapped[list["ProblemDiagram"]] = relationship(
         back_populates="problem", cascade="all, delete-orphan"
     )
 
@@ -100,9 +105,20 @@ class Solution(Base, TimestampMixin):
     body_text: Mapped[str] = mapped_column(Text)
     body_latex: Mapped[str | None] = mapped_column(Text, default=None)
     notes: Mapped[str | None] = mapped_column(Text, default=None)
+    submitted_by: Mapped[str | None] = mapped_column(String(120), default=None)
     moderation_status: Mapped[ModerationStatus] = mapped_column(
         Enum(ModerationStatus, native_enum=False), default=ModerationStatus.PENDING
     )
 
     problem: Mapped[Problem] = relationship(back_populates="solutions")
 
+
+class ProblemDiagram(Base, TimestampMixin):
+    __tablename__ = "problem_diagrams"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    problem_id: Mapped[int] = mapped_column(ForeignKey("problems.id"))
+    image_path: Mapped[str] = mapped_column(String(500))
+    caption: Mapped[str | None] = mapped_column(String(255), default=None)
+
+    problem: Mapped[Problem] = relationship(back_populates="diagrams")

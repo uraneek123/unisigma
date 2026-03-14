@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,8 +16,11 @@ def list_sources(db: Session = Depends(get_db)) -> list[Source]:
 
 @router.post("", response_model=SourceRead, status_code=status.HTTP_201_CREATED)
 def create_source(payload: SourceCreate, db: Session = Depends(get_db)) -> Source:
+    title = payload.title.strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Source title cannot be empty")
     source = Source(
-        title=payload.title.strip(),
+        title=payload.title,
         author=payload.author,
         year=payload.year,
         notes=payload.notes,
@@ -26,4 +29,3 @@ def create_source(payload: SourceCreate, db: Session = Depends(get_db)) -> Sourc
     db.commit()
     db.refresh(source)
     return source
-
