@@ -122,4 +122,3 @@ class ProblemDiagram(Base, TimestampMixin):
     caption: Mapped[str | None] = mapped_column(String(255), default=None)
 
     problem: Mapped[Problem] = relationship(back_populates="diagrams")
-

@@ -11,4 +11,3 @@ def root() -> dict[str, str]:
 @router.get("/health", tags=["health"])
 def health_check() -> dict[str, str]:
     return {"status": "ok"}
-

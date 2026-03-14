@@ -108,9 +108,7 @@ def _resolve_sources(
     ]
 
 
-def _resolve_or_create_suggested_tags(
-    tag_names: list[str], db: Session
-) -> list[Tag]:
+def _resolve_or_create_suggested_tags(tag_names: list[str], db: Session) -> list[Tag]:
     if not tag_names:
         return []
 
@@ -338,8 +336,7 @@ async def extract_problem_latex(
         raise HTTPException(
             status_code=400,
             detail=(
-                "Only PNG/JPG/JPEG/WEBP images are supported "
-                "(PDF requires cloud OCR)."
+                "Only PNG/JPG/JPEG/WEBP images are supported (PDF requires cloud OCR)."
             ),
         )
     if is_pdf and requested_engine not in {"cloud", "default"}:
