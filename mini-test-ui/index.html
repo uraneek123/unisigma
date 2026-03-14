@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UniSigma Composer Test UI</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
+    />
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --card: #fff;
+        --text: #0f172a;
+        --muted: #64748b;
+        --line: #d1d5db;
+        --accent: #0369a1;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: Segoe UI, Tahoma, sans-serif; background: var(--bg); color: var(--text); }
+      .container { max-width: 1280px; margin: 0 auto; padding: 14px; }
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+      .muted { color: var(--muted); font-size: 13px; }
+      .page { display: none; }
+      .page.active { display: block; }
+      .nav-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+      .nav-btn { background: #334155; }
+      .nav-btn.active { background: var(--accent); }
+      .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .row3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+      .split { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 10px; }
+      .workspace { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 10px; }
+      input, select, textarea, button { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px; font-size: 14px; }
+      textarea { resize: vertical; min-height: 120px; font-family: Consolas, monospace; }
+      button { border: 0; background: var(--accent); color: #fff; cursor: pointer; }
+      .btn-secondary { background: #334155; }
+      .source-list, .snippet-list { border: 1px solid var(--line); border-radius: 8px; padding: 8px; max-height: 520px; overflow: auto; background: #f8fafc; }
+      .source-item, .snippet-item, .block-item { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 8px; margin-bottom: 8px; }
+      .problem-item, .account-item, .tag-item { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 8px; margin-bottom: 8px; }
+      .problem-item.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+      .source-item.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+      .source-item img, .snippet-item img { width: 100%; max-height: 120px; object-fit: contain; border: 1px solid var(--line); border-radius: 6px; background: #f8fafc; }
+      #sourceCanvas { width: 100%; max-height: 520px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: crosshair; }
+      .block-list { margin-top: 8px; }
+      .block-token { border: 1px dashed var(--line); border-radius: 6px; padding: 8px; background: #f1f5f9; font-family: Consolas, monospace; }
+      .block-item.drag-over { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+      .snippet-actions, .toolbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+      .preview { border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-height: 180px; background: #fff; }
+      pre { background: #0f172a; color: #e5e7eb; border-radius: 8px; padding: 10px; max-height: 240px; overflow: auto; }
+      @media (max-width: 1000px) { .workspace, .split { grid-template-columns: 1fr; } }
+      @media (max-width: 680px) { .row, .row3, .snippet-actions, .toolbar, .nav-tabs { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>UniSigma Mini Test UI</h1>
+      <p class="muted">
+        Three testing pages: view problems, create problems (composer), and edit/admin actions.
+      </p>
+
+      <section class="card">
+        <h2>Session</h2>
+        <div class="row3">
+          <div><label>API Base</label><input id="apiBase" value="http://127.0.0.1:8000" /></div>
+          <div><label>Actor User ID (optional)</label><input id="actorUserId" type="number" min="1" /></div>
+          <div><label>Submitted By (optional)</label><input id="submittedBy" placeholder="username" /></div>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <div><label>Problem Title (optional)</label><input id="problemTitle" /></div>
+          <div><label>Worked Description (optional)</label><input id="workedDescription" /></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="nav-tabs">
+          <button id="navViewPage" class="nav-btn active">View Problems</button>
+          <button id="navCreatePage" class="nav-btn">Create Problem</button>
+          <button id="navAdminPage" class="nav-btn">Edit / Admin</button>
+        </div>
+      </section>
+
+      <div id="pageView" class="page active">
+        <section class="card">
+          <h2>Problem Browser</h2>
+          <div class="row3">
+            <div><label>Search Text</label><input id="viewSearch" placeholder="filter title/notes/submitter" /></div>
+            <div><label>Tag Filter</label><input id="viewTagFilter" placeholder="e.g. algebra" /></div>
+            <div style="display:flex;align-items:end;"><button id="viewRefreshBtn">Refresh Problems</button></div>
+          </div>
+          <div id="viewProblemList" class="source-list" style="margin-top:8px;"></div>
+        </section>
+
+        <section class="card">
+          <h2>Selected Problem</h2>
+          <div id="viewProblemSummary" class="muted">Select a problem to inspect details.</div>
+          <div class="row3" style="margin-top:8px;">
+            <div style="display:flex;align-items:end;"><button id="viewLoadSimilarBtn" class="btn-secondary">Load Similar</button></div>
+            <div><label>Similar Limit</label><input id="viewSimilarLimit" type="number" min="1" max="20" value="5" /></div>
+            <div></div>
+          </div>
+          <label style="margin-top:8px;">Rendered Content</label>
+          <div id="viewProblemPreview" class="preview muted">No problem selected.</div>
+          <label style="margin-top:8px;">Similar Problems</label>
+          <div id="viewSimilarList" class="source-list"></div>
+        </div>
+      </div>
+
+      <div id="pageCreate" class="page">
+        <section class="card">
+          <h2>Source Images</h2>
+          <div class="row3">
+            <div><label>Upload Multiple Images</label><input id="sourceImageFiles" type="file" multiple accept="image/png,image/jpeg,image/webp" /></div>
+            <div><label>Selection</label><input id="selectionMeta" value="No selection yet" readonly /></div>
+            <div style="display:flex;align-items:end;"><button id="captureSnippetBtn">Capture Snippet</button></div>
+          </div>
+          <div class="split" style="margin-top:8px;">
+            <div><div id="sourceList" class="source-list"></div></div>
+            <div><canvas id="sourceCanvas" width="940" height="520"></canvas></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Composer</h2>
+          <div class="workspace">
+            <div>
+              <div class="toolbar">
+                <button id="addTextBlockBtn" class="btn-secondary">Add Text Block</button>
+                <button id="clearBlocksBtn" class="btn-secondary">Reset Blocks</button>
+                <button id="submitProblemBtn">Submit Problem</button>
+              </div>
+              <p class="muted" style="margin:8px 0 0;">Drag blocks to reorder. Snippet blocks stay tokenized.</p>
+              <div id="blockList" class="block-list"></div>
+            </div>
+            <div>
+              <p class="muted" style="margin:0 0 8px;">
+                Snippet library (right side). OCR code stays hidden in cards, but each snippet has an editable content panel.
+              </p>
+              <div class="row3">
+                <div><label>Default OCR Tool</label><select id="ocrDefaultTool"><option value="math" selected>math</option><option value="text">text</option></select></div>
+                <div><label>Default OCR Mode (math tool)</label><select id="ocrDefaultMode"><option value="formula" selected>formula</option><option value="text_formula">text_formula</option><option value="page">page</option><option value="auto">auto</option></select></div>
+                <div><label>Default Engine</label><select id="ocrDefaultEngine"><option value="default" selected>default</option><option value="local">local</option><option value="cloud">cloud</option></select></div>
+              </div>
+              <div class="row3" style="margin-top:8px;">
+                <div><label>Default Kind</label><select id="ocrDefaultRenderKind"><option value="inline_math" selected>inline_math</option><option value="block_math">block_math</option><option value="plain_text">plain_text</option></select></div>
+                <div><label>Cloud Server Type</label><select id="ocrDefaultServerType"><option value="pro" selected>pro</option><option value="plus">plus</option><option value="ultra">ultra</option></select></div>
+                <div><label>Cloud Language</label><input id="ocrDefaultLanguage" value="English" /></div>
+              </div>
+              <div class="row3" style="margin-top:8px;">
+                <div><label>Text OCR Backend</label><select id="ocrDefaultTextTool"><option value="auto" selected>auto</option><option value="tesseract">tesseract</option><option value="pix2text">pix2text</option></select></div>
+                <div><label>Strip Math Delimiters</label><select id="ocrDefaultStripMath"><option value="true" selected>true</option><option value="false">false</option></select></div>
+                <div><label>Strip CJK Characters</label><select id="ocrDefaultStripCjk"><option value="true" selected>true</option><option value="false">false</option></select></div>
+              </div>
+              <div id="snippetList" class="snippet-list" style="margin-top:8px;"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Preview</h2>
+          <div id="previewPane" class="preview muted">No content yet.</div>
+          <label style="margin-top:8px;">Current Token Markdown</label>
+          <textarea id="compiledMarkdown" rows="8" readonly></textarea>
+        </section>
+      </div>
+
+      <div id="pageAdmin" class="page">
+        <section class="card">
+          <h2>Edit Problem</h2>
+          <div class="row3">
+            <div><label>Problem ID</label><input id="adminProblemId" type="number" min="1" /></div>
+            <div style="display:flex;align-items:end;"><button id="adminLoadProblemBtn" class="btn-secondary">Load Problem</button></div>
+            <div style="display:flex;align-items:end;"><button id="adminUpdateProblemBtn">Save Problem Changes</button></div>
+          </div>
+          <div class="row" style="margin-top:8px;">
+            <div><label>Statement Text</label><input id="adminStatementText" /></div>
+            <div><label>Notes</label><input id="adminNotes" /></div>
+          </div>
+          <div style="margin-top:8px;">
+            <label>Content Markdown</label>
+            <textarea id="adminContentMarkdown" rows="10"></textarea>
+          </div>
+          <div class="row3" style="margin-top:8px;">
+            <div><label>Tag IDs (comma separated)</label><input id="adminTagIds" placeholder="e.g. 1,3,4" /></div>
+            <div><label>Moderation Status (for update)</label><select id="adminModerationStatus"><option value="">(unchanged)</option><option value="pending">pending</option><option value="approved">approved</option><option value="rejected">rejected</option></select></div>
+            <div style="display:flex;align-items:end;"><button id="adminLoadSimilarBtn" class="btn-secondary">Get Similar</button></div>
+          </div>
+          <label style="margin-top:8px;">Rendered Content</label>
+          <div id="adminProblemPreview" class="preview muted">Load a problem to edit.</div>
+          <label style="margin-top:8px;">Similar Problems</label>
+          <div id="adminSimilarList" class="source-list"></div>
+        </section>
+
+        <section class="card">
+          <h2>Moderation Actions</h2>
+          <div class="row3">
+            <div><label>Set Moderation Status</label><select id="adminVerifyStatus"><option value="approved" selected>approved</option><option value="rejected">rejected</option><option value="pending">pending</option></select></div>
+            <div><label>Canonical Source ID (optional)</label><input id="adminCanonicalSourceId" type="number" min="1" /></div>
+            <div style="display:flex;align-items:end;"><button id="adminVerifyBtn">Apply Moderation</button></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Tag Tools</h2>
+          <div class="row3">
+            <div><label>New Tag Name</label><input id="adminNewTagName" placeholder="e.g. inequalities" /></div>
+            <div><label>Description (optional)</label><input id="adminNewTagDescription" /></div>
+            <div style="display:flex;align-items:end;"><button id="adminCreateTagBtn">Create Tag</button></div>
+          </div>
+          <div style="margin-top:8px;display:flex;justify-content:flex-end;"><button id="adminRefreshTagsBtn" class="btn-secondary" style="width:auto;">Refresh Tag List</button></div>
+          <div id="adminTagList" class="source-list" style="margin-top:8px;"></div>
+        </section>
+
+        <section class="card">
+          <h2>Account Admin</h2>
+          <div class="row3">
+            <div style="display:flex;align-items:end;"><button id="adminRefreshAccountsBtn" class="btn-secondary">Refresh Accounts</button></div>
+            <div><label>Account ID</label><input id="adminAccountId" type="number" min="1" /></div>
+            <div style="display:flex;align-items:end;"><button id="adminUpdateAccountBtn">Update Account</button></div>
+          </div>
+          <div class="row3" style="margin-top:8px;">
+            <div><label>Role</label><select id="adminAccountRole"><option value="">(unchanged)</option><option value="user">user</option><option value="moderator">moderator</option><option value="admin">admin</option></select></div>
+            <div><label>Score</label><input id="adminAccountScore" type="number" /></div>
+            <div><label>Is Active</label><select id="adminAccountIsActive"><option value="">(unchanged)</option><option value="true">true</option><option value="false">false</option></select></div>
+          </div>
+          <div id="adminAccountsList" class="source-list" style="margin-top:8px;"></div>
+        </section>
+      </div>
+
+      <section class="card">
+        <h2>Response</h2>
+        <pre id="responseBox">No requests yet.</pre>
+      </section>
+    </div>
+
+    <script defer src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
