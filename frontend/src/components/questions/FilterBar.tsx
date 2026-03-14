@@ -1,4 +1,5 @@
 import { Filter, Search } from "lucide-react"
+import { motion } from "motion/react"
 
 type Topic =
   | "all"
@@ -28,9 +29,12 @@ export function FilterBar({
   onDifficultyChange,
 }: FilterBarProps) {
   return (
-    <section
+    <motion.section
       aria-label="Search and filter questions"
       className="space-y-3 rounded-xl border border-border/60 bg-card/70 p-4 shadow-sm backdrop-blur"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
@@ -111,7 +115,7 @@ export function FilterBar({
           </div>
         </div>
       </div>
-    </section>
+    </motion.section>
   )
 }
 

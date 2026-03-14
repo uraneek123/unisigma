@@ -1,4 +1,6 @@
-import { Button } from "@/components/ui/button"
+import { motion } from "motion/react"
+
+import { Button } from "../ui/button"
 
 import type { Question } from "./QuestionList"
 
@@ -21,14 +23,25 @@ export function QuestionDetail({
 }: QuestionDetailProps) {
   if (!question) {
     return (
-      <div className="flex min-h-[280px] flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 bg-card/60 px-4 py-10 text-center text-xs text-muted-foreground sm:text-[0.8rem]">
+      <motion.div
+        className="flex min-h-[280px] flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 bg-card/60 px-4 py-10 text-center text-xs text-muted-foreground sm:text-[0.8rem]"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.25 }}
+      >
         <p>Select a question on the left to start answering.</p>
-      </div>
+      </motion.div>
     )
   }
 
   return (
-    <div className="flex min-h-[280px] flex-col gap-3 rounded-xl border border-border/60 bg-card/80 p-4 shadow-sm backdrop-blur">
+    <motion.div
+      className="flex min-h-[280px] flex-col gap-3 rounded-xl border border-border/60 bg-card/80 p-4 shadow-sm backdrop-blur"
+      initial={{ opacity: 0, x: 12 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+      key={question.id}
+    >
       <header className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold leading-snug sm:text-base">
@@ -82,7 +95,7 @@ export function QuestionDetail({
         <div className="flex gap-3">
           <Button
             variant="secondary"
-            size="md"
+            size="default" 
             type="button"
             className="px-4 text-xs sm:text-sm"
             onClick={onClear}
@@ -90,7 +103,7 @@ export function QuestionDetail({
             Clear
           </Button>
           <Button
-            size="md"
+            size="default"
             type="button"
             className="px-5 text-xs sm:text-sm"
           >
@@ -98,7 +111,7 @@ export function QuestionDetail({
           </Button>
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
