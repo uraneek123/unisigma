@@ -172,10 +172,9 @@ def _result_path_for_submit_path(settings: Settings, submit_path: str) -> str:
     if not template:
         template = "/result/{task_id}"
     normalized_template = _normalize_api_path(template)
-    if (
-        normalized_template == "/result/{task_id}"
-        and _normalize_api_path(submit_path).startswith("/api/")
-    ):
+    if normalized_template == "/result/{task_id}" and _normalize_api_path(
+        submit_path
+    ).startswith("/api/"):
         return "/api/result/{task_id}"
     return normalized_template
 

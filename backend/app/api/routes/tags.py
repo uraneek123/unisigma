@@ -26,4 +26,3 @@ def create_tag(payload: TagCreate, db: Session = Depends(get_db)) -> Tag:
         raise HTTPException(status_code=409, detail="Tag already exists") from exc
     db.refresh(tag)
     return tag
-

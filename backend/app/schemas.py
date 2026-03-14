@@ -273,4 +273,3 @@ class OcrLatexResponse(BaseModel):
     markdown: str | None = None
     mode_used: str
     strategy: str
-
