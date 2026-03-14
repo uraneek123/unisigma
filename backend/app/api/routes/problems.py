@@ -21,6 +21,8 @@ from app.schemas import (
     SourceCreate,
 )
 from app.services.pix2text_ocr import extract_latex_from_image
+from ...services.embedding_service import embedding_service
+from ...services.similarity_service import find_similar
 
 router = APIRouter(prefix="/problems", tags=["problems"])
 DIAGRAMS_DIR = Path("uploads") / "diagrams"
@@ -41,6 +43,11 @@ def _problem_query():
         selectinload(Problem.solutions),
         selectinload(Problem.diagrams),
     )
+
+def problem_to_text(problem: Problem) -> str:
+    tags_str = ", ".join(tag.name for tag in problem.tags) if problem.tags else ""
+    notes = problem.notes or ""
+    return f"Title: {problem.statement_text}\nTags: {tags_str}\nDescription: {notes}"
 
 
 def _auto_generate_latex(statement_text: str) -> str:
@@ -237,6 +244,7 @@ def create_problem(payload: ProblemCreate, db: Session = Depends(get_db)) -> Pro
         db,
     ) + _resolve_or_create_suggested_sources(payload.suggested_sources, db)
     _reconcile_primary_source(problem.sources)
+    problem.embedding = embedding_service.embed_problem(problem_to_text(problem))
     db.add(problem)
     db.commit()
     return _get_problem_or_404(problem.id, db)
@@ -257,6 +265,7 @@ def update_problem(
     for field in ("statement_text", "statement_latex", "notes", "moderation_status"):
         if field in updates:
             setattr(problem, field, updates[field])
+    problem.embedding = embedding_service.embed_problem(problem_to_text(problem))
 
     if payload.tag_ids is not None:
         problem.tags = _resolve_tags(payload.tag_ids, db)
@@ -478,3 +487,10 @@ def create_solution(
     db.commit()
     db.refresh(solution)
     return solution
+
+@router.get("/{problem_id}/similar", response_model=list[ProblemRead])
+def get_similar_problems(problem_id: int, db: Session = Depends(get_db)) -> list[Problem]:
+    problem = _get_problem_or_404(problem_id, db)
+    all_problems = db.scalars(_problem_query()).all()
+    similar = find_similar(problem, all_problems, k=5)
+    return similar

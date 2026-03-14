@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, UniqueConstraint, func, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -54,6 +54,7 @@ class Problem(Base, TimestampMixin):
     moderation_status: Mapped[ModerationStatus] = mapped_column(
         Enum(ModerationStatus, native_enum=False), default=ModerationStatus.PENDING
     )
+    embedding: Mapped[list[float] | None] = mapped_column(JSON, default=None)
 
     tags: Mapped[list["Tag"]] = relationship(
         secondary="problem_tags", back_populates="problems"
