@@ -1,0 +1,131 @@
+import { useEffect, useState } from "react"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useLogin } from "@/api/hooks"
+import { useAuth } from "@/contexts/AuthContext"
+
+function safeRedirect(redirect: string | null): string {
+  if (!redirect || typeof redirect !== "string") return "/"
+  const trimmed = redirect.trim()
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) return trimmed
+  return "/"
+}
+
+export function LoginPage() {
+  const { isLoggedIn, login } = useAuth()
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState<string | null>(null)
+
+  const loginMutation = useLogin()
+  const redirectTo = safeRedirect(searchParams.get("redirect"))
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      navigate(redirectTo, { replace: true })
+    }
+  }, [isLoggedIn, navigate, redirectTo])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    if (!username.trim() || !password) {
+      setError("Username and password are required.")
+      return
+    }
+    try {
+      const account = await loginMutation.mutateAsync({
+        username: username.trim(),
+        password,
+      })
+      login(account)
+      navigate(redirectTo, { replace: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed.")
+    }
+  }
+
+  if (isLoggedIn) {
+    return null
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12">
+      <Card className="w-full max-w-md border-border/60 shadow-sm">
+        <CardHeader>
+          <CardTitle id="login-title" className="font-heading text-lg">
+            Log in
+          </CardTitle>
+          <CardDescription>
+            Sign in with your account to submit problems and answers.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="login-username">Username</Label>
+              <Input
+                id="login-username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                placeholder="Your username"
+                className="h-10"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="login-password">Password</Label>
+              <Input
+                id="login-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                placeholder="Password"
+                className="h-10"
+              />
+            </div>
+            <div className="flex flex-col gap-2 pt-2">
+              <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
+                {loginMutation.isPending ? "Signing in…" : "Log in"}
+              </Button>
+              <p className="text-center text-xs text-muted-foreground">
+                Don&apos;t have an account?{" "}
+                <Link
+                  to={redirectTo !== "/" ? `/signup?redirect=${encodeURIComponent(redirectTo)}` : "/signup"}
+                  className="font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Sign up
+                </Link>
+              </p>
+            </div>
+          </form>
+        </CardContent>
+        <CardFooter className="flex justify-center border-t border-border/60 pt-4">
+          <Link to="/" className="text-xs text-muted-foreground hover:text-foreground">
+            ← Back to home
+          </Link>
+        </CardFooter>
+      </Card>
+    </div>
+  )
+}

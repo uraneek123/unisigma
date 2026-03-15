@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models import Account, AccountRole
-from app.schemas import AccountCreate, AccountRead, AccountUpdate
-from app.services.passwords import hash_password
+from app.schemas import AccountCreate, AccountRead, AccountUpdate, LoginRequest
+from app.services.passwords import hash_password, verify_password
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
@@ -38,6 +38,29 @@ def _find_account_by_username(username: str, db: Session) -> Account | None:
             func.lower(Account.username) == _normalize_username_lookup(username)
         )
     )
+
+
+@router.post("/login", response_model=AccountRead)
+def login(
+    payload: LoginRequest,
+    db: Session = Depends(get_db),
+) -> Account:
+    username = payload.username.strip()
+    if not username:
+        raise HTTPException(
+            status_code=400,
+            detail="username is required",
+        )
+    account = _find_account_by_username(username, db)
+    if account is None:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    if not account.is_active:
+        raise HTTPException(status_code=401, detail="Account is inactive")
+    if account.password_hash is None:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    if not payload.password or not verify_password(payload.password, account.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    return account
 
 
 @router.post("", response_model=AccountRead, status_code=status.HTTP_201_CREATED)

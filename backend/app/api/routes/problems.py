@@ -13,8 +13,9 @@ from fastapi import (
     UploadFile,
     status,
 )
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.sql import exists
 
 from app.core.config import get_settings
 from app.db.session import get_db
@@ -24,6 +25,7 @@ from app.models import (
     Problem,
     ProblemDiagram,
     ProblemSource,
+    ProblemTag,
     Solution,
     Source,
     Tag,
@@ -390,9 +392,112 @@ def _attach_to_existing_problem(
     return _get_problem_or_404(existing_problem.id, db)
 
 
+LIST_SORT_VALUES = {
+    "created_at_desc",
+    "created_at_asc",
+    "tag_asc",
+    "tag_desc",
+    "source_asc",
+    "source_desc",
+}
+
+
 @router.get("", response_model=list[ProblemRead])
-def list_problems(db: Session = Depends(get_db)) -> list[Problem]:
-    problems = db.scalars(_problem_query().order_by(Problem.created_at.desc())).unique()
+def list_problems(
+    db: Session = Depends(get_db),
+    search: str | None = Query(default=None, min_length=1),
+    tag_id: list[int] | None = Query(default=None, alias="tag_id"),
+    source_id: list[int] | None = Query(default=None, alias="source_id"),
+    sort: str = Query(default="created_at_desc"),
+) -> list[Problem]:
+    tag_ids = [t for t in (tag_id or []) if t is not None]
+    source_ids = [s for s in (source_id or []) if s is not None]
+    if sort not in LIST_SORT_VALUES:
+        sort = "created_at_desc"
+
+    q = _problem_query()
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        tag_match = exists(
+            select(1)
+            .select_from(ProblemTag)
+            .join(Tag, Tag.id == ProblemTag.tag_id)
+            .where(ProblemTag.problem_id == Problem.id)
+            .where(Tag.name.ilike(term))
+        )
+        text_match = or_(
+            Problem.statement_text.ilike(term),
+            (Problem.content_markdown.isnot(None)) & (Problem.content_markdown.ilike(term)),
+            (Problem.notes.isnot(None)) & (Problem.notes.ilike(term)),
+            (Problem.statement_latex.isnot(None)) & (Problem.statement_latex.ilike(term)),
+        )
+        q = q.where(or_(text_match, tag_match))
+
+    if tag_ids:
+        q = q.where(
+            Problem.id.in_(
+                select(ProblemTag.problem_id).where(ProblemTag.tag_id.in_(tag_ids))
+            )
+        )
+
+    if source_ids:
+        q = q.where(
+            Problem.id.in_(
+                select(ProblemSource.problem_id).where(
+                    ProblemSource.source_id.in_(source_ids)
+                )
+            )
+        )
+
+    if sort == "created_at_desc":
+        q = q.order_by(Problem.created_at.desc())
+    elif sort == "created_at_asc":
+        q = q.order_by(Problem.created_at.asc())
+    elif sort == "tag_asc":
+        tag_sub = (
+            select(func.min(Tag.name))
+            .select_from(ProblemTag)
+            .join(Tag, Tag.id == ProblemTag.tag_id)
+            .where(ProblemTag.problem_id == Problem.id)
+            .correlate(Problem)
+            .scalar_subquery()
+        )
+        q = q.order_by(tag_sub.asc().nulls_last(), Problem.id.asc())
+    elif sort == "tag_desc":
+        tag_sub = (
+            select(func.max(Tag.name))
+            .select_from(ProblemTag)
+            .join(Tag, Tag.id == ProblemTag.tag_id)
+            .where(ProblemTag.problem_id == Problem.id)
+            .correlate(Problem)
+            .scalar_subquery()
+        )
+        q = q.order_by(tag_sub.desc().nulls_last(), Problem.id.asc())
+    elif sort == "source_asc":
+        source_sub = (
+            select(Source.title)
+            .select_from(ProblemSource)
+            .join(Source, Source.id == ProblemSource.source_id)
+            .where(ProblemSource.problem_id == Problem.id)
+            .order_by(ProblemSource.is_primary.desc(), Source.title.asc())
+            .limit(1)
+            .scalar_subquery()
+        )
+        q = q.order_by(source_sub.asc().nulls_last(), Problem.id.asc())
+    else:
+        source_sub = (
+            select(Source.title)
+            .select_from(ProblemSource)
+            .join(Source, Source.id == ProblemSource.source_id)
+            .where(ProblemSource.problem_id == Problem.id)
+            .order_by(ProblemSource.is_primary.desc(), Source.title.desc())
+            .limit(1)
+            .scalar_subquery()
+        )
+        q = q.order_by(source_sub.desc().nulls_last(), Problem.id.asc())
+
+    problems = db.scalars(q).unique()
     return list(problems)
 
 

@@ -31,6 +31,11 @@ class AccountCreate(BaseModel):
         return normalized or None
 
 
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=120)
+    password: str = Field(min_length=1, max_length=256)
+
+
 class AccountUpdate(BaseModel):
     role: AccountRole | None = None
     score: int | None = None

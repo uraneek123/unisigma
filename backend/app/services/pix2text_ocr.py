@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import mimetypes
+import os
 import time
 from dataclasses import dataclass
 from io import BytesIO
@@ -337,6 +338,9 @@ def _get_p2t_instance() -> Any:
     if _p2t_instance is not None:
         return _p2t_instance
 
+    if "ORT_EXECUTION_PROVIDERS" not in os.environ:
+        os.environ["ORT_EXECUTION_PROVIDERS"] = "CPUExecutionProvider"
+
     try:
         from pix2text import Pix2Text
     except ImportError as exc:
@@ -344,7 +348,7 @@ def _get_p2t_instance() -> Any:
             "Pix2Text is not installed. Install dependencies and retry."
         ) from exc
 
-    _p2t_instance = Pix2Text.from_config()
+    _p2t_instance = Pix2Text.from_config(device="cpu")
     return _p2t_instance
 
 

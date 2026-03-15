@@ -1,11 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
-@import "@fontsource/syne/400.css";
-@import "@fontsource/syne/600.css";
-@import "@fontsource/syne/700.css";
-@import "@fontsource/syne/800.css";
+@import "@fontsource-variable/dm-sans";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -42,10 +38,10 @@
   --sidebar-accent-foreground: oklch(0.3729 0.0306 259.7328);
   --sidebar-border: oklch(0.8687 0.0043 56.3660);
   --sidebar-ring: oklch(0.5854 0.2041 277.1173);
-  --font-sans: "Geist Variable", system-ui, sans-serif;
-  --font-display: "Syne", var(--font-sans);
-  --font-serif: Lora, serif;
-  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --font-sans: "DM Sans Variable", system-ui, sans-serif;
+  --font-display: "DM Sans Variable", var(--font-sans);
+  --font-serif: ui-serif, serif;
+  --font-mono: ui-monospace, monospace;
   --radius: 1.25rem;
   --shadow-x: 2px;
   --shadow-y: 2px;
@@ -99,10 +95,10 @@
   --sidebar-accent-foreground: oklch(0.92 0.01 260);
   --sidebar-border: oklch(0.16 0.008 260);
   --sidebar-ring: oklch(0.6801 0.1583 276.9349);
-  --font-sans: "Geist Variable", system-ui, sans-serif;
-  --font-display: "Syne", var(--font-sans);
-  --font-serif: Lora, serif;
-  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --font-sans: "DM Sans Variable", system-ui, sans-serif;
+  --font-display: "DM Sans Variable", var(--font-sans);
+  --font-serif: ui-serif, serif;
+  --font-mono: ui-monospace, monospace;
   --radius: 1.25rem;
   --shadow-x: 2px;
   --shadow-y: 2px;
@@ -189,6 +185,11 @@
 
 .font-display {
   font-family: var(--font-display);
+}
+
+.font-heading {
+  font-family: var(--font-display);
+  font-weight: 700;
 }
 
 @layer utilities {
