@@ -1,12 +1,13 @@
-# UniSigma: backend + frontend (static)
-# After first deploy, set VITE_API_URL on the static site to your backend URL
-# (e.g. https://unisigma-api.onrender.com) and FRONTEND_ORIGIN on the backend to your static site URL.
+# UniSigma: backend + frontend (static) — free tier
+# Backend: plan free (spins down after 15 min inactivity, 750 instance hrs/mo, ephemeral disk).
+# Static site: free. After first deploy, set VITE_API_URL and FRONTEND_ORIGIN in the dashboard.
 
 services:
-  # Backend API (SQLite and uploads use ephemeral storage; data does not persist across deploys)
+  # Backend API (free plan: spin-down when idle, ephemeral SQLite + uploads)
   - type: web
     runtime: python
     name: unisigma-api
+    plan: free
     rootDir: backend
     buildCommand: uv sync
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
