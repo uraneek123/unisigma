@@ -58,7 +58,9 @@ def login(
         raise HTTPException(status_code=401, detail="Account is inactive")
     if account.password_hash is None:
         raise HTTPException(status_code=401, detail="Invalid username or password")
-    if not payload.password or not verify_password(payload.password, account.password_hash):
+    if not payload.password or not verify_password(
+        payload.password, account.password_hash
+    ):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     return account
 

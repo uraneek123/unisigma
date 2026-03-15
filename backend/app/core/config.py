@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     app_name: str = "UniSigma Backend"
     app_env: str = "dev"
     database_url: str = "sqlite:///./unisigma.db"
+    uploads_dir: str = "uploads"
+    frontend_origin: str | None = None
     pix2text_mode: str = "formula"
     pix2text_provider: Literal["local", "cloud"] = "local"
     pix2text_cloud_api_key: str | None = None

@@ -50,8 +50,8 @@ from app.services.similarity_service import find_similar
 from app.services.text_ocr import extract_text_from_image
 
 router = APIRouter(prefix="/problems", tags=["problems"])
-DIAGRAMS_DIR = Path("uploads") / "diagrams"
-EDITOR_ASSETS_DIR = Path("uploads") / "editor-assets"
+DIAGRAMS_DIR = Path(get_settings().uploads_dir) / "diagrams"
+EDITOR_ASSETS_DIR = Path(get_settings().uploads_dir) / "editor-assets"
 OCR_ALLOWED_IMAGE_CONTENT_TYPES = {
     "image/png",
     "image/jpeg",
@@ -428,9 +428,11 @@ def list_problems(
         )
         text_match = or_(
             Problem.statement_text.ilike(term),
-            (Problem.content_markdown.isnot(None)) & (Problem.content_markdown.ilike(term)),
+            (Problem.content_markdown.isnot(None))
+            & (Problem.content_markdown.ilike(term)),
             (Problem.notes.isnot(None)) & (Problem.notes.ilike(term)),
-            (Problem.statement_latex.isnot(None)) & (Problem.statement_latex.ilike(term)),
+            (Problem.statement_latex.isnot(None))
+            & (Problem.statement_latex.ilike(term)),
         )
         q = q.where(or_(text_match, tag_match))
 
