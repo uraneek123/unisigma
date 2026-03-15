@@ -9,8 +9,8 @@ services:
     name: unisigma-api
     plan: free
     rootDir: backend
-    buildCommand: uv sync
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    buildCommand: "pip install uv && uv sync"
+    startCommand: uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
       - key: FRONTEND_ORIGIN
