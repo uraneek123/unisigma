@@ -1,9 +1,12 @@
 line-length = 88
-target-version = "py312"
+target-version = "py314"
 
 [lint]
 select = ["E", "F", "I", "N"]
 ignore = []
+
+[lint.isort]
+known-first-party = ["app"]
 
 [format]
 quote-style = "double"

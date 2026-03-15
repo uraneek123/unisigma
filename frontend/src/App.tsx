@@ -1,120 +1,137 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { AnimatePresence, motion } from "motion/react"
+import { useMemo, useState } from "react"
+import { Route, Routes, useLocation } from "react-router-dom"
+import { useProblems, useSources, useTags } from "@/api/hooks"
+import "./App.css"
+import { Landing } from "./components/landing/Landing"
+import { Navbar } from "./components/layout/Navbar"
+import { FilterBar } from "./components/questions/FilterBar"
+import { QuestionDetail } from "./components/questions/QuestionDetail"
+import { QuestionList } from "./components/questions/QuestionList"
+import { UploadView } from "./components/upload/UploadView"
+import { AboutPage } from "./pages/AboutPage"
+import { LoginPage } from "./pages/LoginPage"
+import { SignUpPage } from "./pages/SignUpPage"
 
-function App() {
-  const [count, setCount] = useState(0)
+const easeOutCubic = [0.25, 0.46, 0.45, 0.94] as const
+
+const pageTransition = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -8 },
+  transition: { duration: 0.25, ease: easeOutCubic },
+}
+
+type MainView = "landing" | "questions" | "upload"
+
+function MainApp() {
+  const location = useLocation()
+  const [view, setView] = useState<MainView>(
+    () => (location.state?.view as MainView) || "landing"
+  )
+  const [search, setSearch] = useState("")
+  const [selectedTagId, setSelectedTagId] = useState<number | null>(null)
+  const [selectedSourceId, setSelectedSourceId] = useState<number | null>(null)
+  const [sort, setSort] = useState("created_at_desc")
+  const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(null)
+  const [answerDraft, setAnswerDraft] = useState("")
+
+  const problemsFilter = useMemo(
+    () => ({
+      search: search.trim() || undefined,
+      tag_ids: selectedTagId != null ? [selectedTagId] : undefined,
+      source_ids: selectedSourceId != null ? [selectedSourceId] : undefined,
+      sort,
+    }),
+    [search, selectedTagId, selectedSourceId, sort]
+  )
+
+  const { data: problems = [], isLoading: problemsLoading, error: problemsError } =
+    useProblems(problemsFilter)
+  const { data: tags = [] } = useTags()
+  const { data: sources = [] } = useSources()
+
+  const handleClearDetail = () => {
+    setAnswerDraft("")
+  }
 
   return (
     <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
+      <Navbar view={view} onChangeView={setView} />
+      <AnimatePresence mode="wait">
+        {view === "landing" && (
+          <motion.div key="landing" {...pageTransition}>
+            <Landing onGetStarted={() => setView("questions")} />
+          </motion.div>
+        )}
+        {view === "questions" && (
+          <motion.div
+            key="questions"
+            className="mx-auto max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8"
+            {...pageTransition}
+          >
+            <div className="space-y-4">
+              <FilterBar
+                search={search}
+                selectedTagId={selectedTagId}
+                selectedSourceId={selectedSourceId}
+                sort={sort}
+                tags={tags}
+                sources={sources}
+                onSearchChange={setSearch}
+                onTagChange={setSelectedTagId}
+                onSourceChange={setSelectedSourceId}
+                onSortChange={setSort}
+              />
+              <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
+                <QuestionList
+                  problems={problems}
+                  selectedProblemId={selectedQuestionId}
+                  onSelectProblem={setSelectedQuestionId}
+                  isLoading={problemsLoading}
+                  error={problemsError ?? null}
+                />
+                <QuestionDetail
+                  problemId={selectedQuestionId}
+                  answerDraft={answerDraft}
+                  onAnswerChange={setAnswerDraft}
+                  onClear={handleClearDetail}
+                  onSelectProblem={setSelectedQuestionId}
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
+        {view === "upload" && (
+          <motion.div
+            key="upload"
+            className="mx-auto max-w-7xl flex-1 px-4 py-12 sm:px-6 lg:px-8"
+            {...pageTransition}
+          >
+            <UploadView />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
+  )
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignUpPage />} />
+      <Route
+        path="/about"
+        element={
+          <>
+            <Navbar view="about" onChangeView={() => {}} />
+            <AboutPage />
+          </>
+        }
+      />
+      <Route path="/*" element={<MainApp />} />
+    </Routes>
   )
 }
 
