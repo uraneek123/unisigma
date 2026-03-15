@@ -348,7 +348,28 @@ def _get_p2t_instance() -> Any:
             "Pix2Text is not installed. Install dependencies and retry."
         ) from exc
 
-    _p2t_instance = Pix2Text.from_config(device="cpu")
+    # Use config that fixes common warnings:
+    # - use_fast=True: use fast tokenizer (default in transformers v4.52)
+    # - use_merged=False: use decoder_model.onnx when merged file is not present
+    formula_config = {
+        "model_name": "mfr-1.5",
+        "model_backend": "onnx",
+        "more_processor_configs": {"use_fast": True},
+        "more_model_configs": {"use_merged": False},
+    }
+    total_configs = {
+        "layout": None,
+        "text_formula": {"formula": formula_config},
+        "table": None,
+    }
+    try:
+        _p2t_instance = Pix2Text.from_config(
+            total_configs=total_configs,
+            device="cpu",
+        )
+    except Exception:  # noqa: S110
+        # Fallback to default config if custom config is not supported
+        _p2t_instance = Pix2Text.from_config(device="cpu")
     return _p2t_instance
 
 
