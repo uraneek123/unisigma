@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion } from "motion/react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useCreateProblem, useOcrLatex } from "@/api/hooks"
@@ -22,20 +22,77 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+const UPLOAD_FORM_STORAGE_KEY = "upload-form-draft"
+
+function loadDraft(): Partial<{
+  statementText: string
+  statementLatex: string
+  contentMarkdown: string
+  notes: string
+  showOcr: boolean
+  ocrEngine: "default" | "local" | "cloud"
+}> {
+  try {
+    const raw = sessionStorage.getItem(UPLOAD_FORM_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    return {
+      statementText: typeof parsed.statementText === "string" ? parsed.statementText : "",
+      statementLatex: typeof parsed.statementLatex === "string" ? parsed.statementLatex : "",
+      contentMarkdown: typeof parsed.contentMarkdown === "string" ? parsed.contentMarkdown : "",
+      notes: typeof parsed.notes === "string" ? parsed.notes : "",
+      showOcr: Boolean(parsed.showOcr),
+      ocrEngine:
+        parsed.ocrEngine === "local" || parsed.ocrEngine === "cloud" ? parsed.ocrEngine : "default",
+    }
+  } catch {
+    return {}
+  }
+}
+
+function saveDraft(draft: {
+  statementText: string
+  statementLatex: string
+  contentMarkdown: string
+  notes: string
+  showOcr: boolean
+  ocrEngine: string
+}) {
+  try {
+    sessionStorage.setItem(UPLOAD_FORM_STORAGE_KEY, JSON.stringify(draft))
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function CreateProblemForm() {
   const { account } = useAuth()
   const createProblem = useCreateProblem()
   const ocrLatex = useOcrLatex()
 
-  const [statementText, setStatementText] = useState("")
-  const [statementLatex, setStatementLatex] = useState("")
-  const [contentMarkdown, setContentMarkdown] = useState("")
-  const [notes, setNotes] = useState("")
+  const draft = loadDraft()
+  const [statementText, setStatementText] = useState(draft.statementText ?? "")
+  const [statementLatex, setStatementLatex] = useState(draft.statementLatex ?? "")
+  const [contentMarkdown, setContentMarkdown] = useState(draft.contentMarkdown ?? "")
+  const [notes, setNotes] = useState(draft.notes ?? "")
   const [error, setError] = useState<string | null>(null)
   const [successId, setSuccessId] = useState<number | null>(null)
-  const [showOcr, setShowOcr] = useState(false)
-  const [ocrEngine, setOcrEngine] = useState<"default" | "local" | "cloud">("default")
+  const [showOcr, setShowOcr] = useState(draft.showOcr ?? false)
+  const [ocrEngine, setOcrEngine] = useState<"default" | "local" | "cloud">(
+    draft.ocrEngine ?? "default"
+  )
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+
+  useEffect(() => {
+    saveDraft({
+      statementText,
+      statementLatex,
+      contentMarkdown,
+      notes,
+      showOcr,
+      ocrEngine,
+    })
+  }, [statementText, statementLatex, contentMarkdown, notes, showOcr, ocrEngine])
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -89,6 +146,11 @@ export function CreateProblemForm() {
           setContentMarkdown("")
           setNotes("")
           setSuccessId(data.id)
+          try {
+            sessionStorage.removeItem(UPLOAD_FORM_STORAGE_KEY)
+          } catch {
+            // ignore
+          }
         },
         onError: (err) => setError(err.message),
       }
@@ -221,9 +283,6 @@ export function CreateProblemForm() {
                       {ocrLatex.isPending ? "Converting…" : "Convert to LaTeX"}
                     </Button>
                   </div>
-                  {ocrLatex.isPending && (
-                    <p className="text-xs text-muted-foreground">Converting…</p>
-                  )}
                 </div>
               )}
             </div>
