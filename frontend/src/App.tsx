@@ -55,9 +55,13 @@ function MainApp() {
     setAnswerDraft("")
   }
 
+  const handleChangeView = (v: MainView | "about") => {
+    if (v !== "about") setView(v)
+  }
+
   return (
     <>
-      <Navbar view={view} onChangeView={setView} />
+      <Navbar view={view} onChangeView={handleChangeView} />
       <AnimatePresence mode="wait">
         {view === "landing" && (
           <motion.div key="landing" {...pageTransition}>
