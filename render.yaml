@@ -22,7 +22,7 @@ services:
     name: unisigma
     rootDir: frontend
     buildCommand: bun run build
-    staticPublishPath: frontend/dist
+    staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
         sync: false
